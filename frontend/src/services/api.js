@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:1410/api",
+  baseURL: "https://collaborative-editor-zegd.onrender.com/api",
 });
 
 API.interceptors.request.use((req) => {
