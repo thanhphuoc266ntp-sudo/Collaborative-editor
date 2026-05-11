@@ -1,0 +1,30 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+input:focus,
+textarea:focus,
+.ql-editor:focus {
+  border-color: #0866ff !important;
+  box-shadow: 0 0 0 3px rgba(8, 102, 255, 0.2) !important;
+  outline: none;
+}
+.ProseMirror {
+  min-height: 300px;
+  outline: none;
+}
+
+.ProseMirror p {
+  margin: 0;
+}
