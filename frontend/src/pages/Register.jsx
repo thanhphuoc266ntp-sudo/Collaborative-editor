@@ -6,15 +6,21 @@ import { GoogleLogin } from "@react-oauth/google";
 const Register = () => {
   const navigate = useNavigate();
 
+  // Thêm state "step" để biết đang ở bước 1 (Điền form) hay bước 2 (Nhập OTP)
+  const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
-    confirmPassword: "", // Thêm trường xác nhận mật khẩu
+    confirmPassword: "",
     displayName: "",
   });
 
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -23,17 +29,15 @@ const Register = () => {
       ...prev,
       [name]: value,
     }));
-    // Tự động xóa lỗi khi người dùng bắt đầu gõ lại
     if (errorMsg) setErrorMsg("");
   };
 
+  // --- BƯỚC 1: XỬ LÝ ĐĂNG KÝ (GỌI API GỬI MAIL) ---
   const handleRegister = async (e) => {
     e.preventDefault();
-
     const { username, email, password, confirmPassword, displayName } =
       formData;
 
-    // 1. Kiểm tra rỗng tất cả các trường
     if (
       !username.trim() ||
       !email.trim() ||
@@ -45,13 +49,11 @@ const Register = () => {
       return;
     }
 
-    // 2. Kiểm tra độ dài mật khẩu
     if (password.length < 6) {
       setErrorMsg("Mật khẩu phải có ít nhất 6 ký tự!");
       return;
     }
 
-    // 3. Kiểm tra mật khẩu xác nhận có khớp không
     if (password !== confirmPassword) {
       setErrorMsg("Mật khẩu xác nhận không khớp!");
       return;
@@ -61,18 +63,50 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      // Gọi API đăng ký (không gửi confirmPassword lên server)
-      await API.post("/auth/register", {
+      const res = await API.post("/auth/register", {
         username: username.trim(),
         email: email.trim(),
         password: password,
         displayName: displayName.trim(),
       });
-      alert("Đăng ký thành công! Hãy đăng nhập để bắt đầu.");
-      navigate("/login");
+
+      // Đăng ký thành công -> Lưu email lại và chuyển sang bước 2 (Nhập OTP)
+      setRegisteredEmail(res.data.email || email.trim());
+      setSuccessMsg(res.data.message);
+      setStep(2);
     } catch (error) {
       setErrorMsg(
         error.response?.data?.message || "Lỗi hệ thống. Vui lòng thử lại sau!",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- BƯỚC 2: XỬ LÝ XÁC NHẬN OTP ---
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (!otp.trim()) {
+      setErrorMsg("Vui lòng nhập mã OTP!");
+      return;
+    }
+
+    setErrorMsg("");
+    setIsLoading(true);
+
+    try {
+      const res = await API.post("/auth/verify-registration", {
+        email: registeredEmail,
+        otp: otp.trim(),
+      });
+
+      // Nếu thành công -> Lưu token và cho vào thẳng trang chủ
+      localStorage.setItem("token", res.data.token);
+      alert("Xác thực thành công! Chào mừng bạn.");
+      navigate("/");
+    } catch (error) {
+      setErrorMsg(
+        error.response?.data?.message || "Mã OTP không đúng hoặc đã hết hạn!",
       );
     } finally {
       setIsLoading(false);
@@ -101,8 +135,14 @@ const Register = () => {
     <div style={styles.pageWrapper}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <h2 style={styles.title}>Tham gia ngay! ✨</h2>
-          <p style={styles.subtitle}>Tạo tài khoản để cùng nhau làm việc</p>
+          <h2 style={styles.title}>
+            {step === 1 ? "Tham gia ngay! ✨" : "Xác thực Email ✉️"}
+          </h2>
+          <p style={styles.subtitle}>
+            {step === 1
+              ? "Tạo tài khoản để cùng nhau làm việc"
+              : `Mã 6 số đã được gửi tới ${registeredEmail}`}
+          </p>
         </div>
 
         {errorMsg && (
@@ -111,103 +151,173 @@ const Register = () => {
           </div>
         )}
 
-        <form onSubmit={handleRegister} style={styles.form} noValidate>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Tên đăng nhập</label>
-            <input
-              style={styles.input}
-              type="text"
-              name="username"
-              placeholder="Ví dụ: thanhphuoc"
-              value={formData.username}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Địa chỉ Email</label>
-            <input
-              style={styles.input}
-              type="email"
-              name="email"
-              placeholder="Ví dụ: hoten123@gmail.com"
-              value={formData.email}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Tên hiển thị (Nickname)</label>
-            <input
-              style={styles.input}
-              type="text"
-              name="displayName"
-              placeholder="Tên bạn muốn mọi người gọi"
-              value={formData.displayName}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Mật khẩu bảo mật</label>
-            <input
-              style={styles.input}
-              type="password"
-              name="password"
-              placeholder="Tối thiểu 6 ký tự"
-              value={formData.password}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* Ô Xác nhận mật khẩu mới thêm vào */}
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Xác nhận mật khẩu</label>
-            <input
-              style={styles.input}
-              type="password"
-              name="confirmPassword"
-              placeholder="Nhập lại mật khẩu ở trên"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
+        {/* Hiển thị thông báo thành công khi chuyển sang bước 2 */}
+        {step === 2 && successMsg && !errorMsg && (
+          <div
             style={{
-              ...styles.submitBtn,
-              ...(isLoading ? styles.submitBtnDisabled : {}),
+              ...styles.errorBox,
+              backgroundColor: "#dcfce7",
+              color: "#166534",
             }}
           >
-            {isLoading ? "Đang xử lý hồ sơ..." : "Hoàn Tất Đăng Ký"}
-          </button>
-        </form>
+            <span style={{ marginRight: "8px" }}>✅</span> {successMsg}
+          </div>
+        )}
 
-        <div style={styles.divider}>
-          <span style={styles.dividerLine}></span>
-          <span style={styles.dividerText}>Hoặc</span>
-          <span style={styles.dividerLine}></span>
-        </div>
+        {/* --- GIAO DIỆN BƯỚC 1: FORM ĐĂNG KÝ --- */}
+        {step === 1 && (
+          <>
+            <form onSubmit={handleRegister} style={styles.form} noValidate>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Tên đăng nhập</label>
+                <input
+                  style={styles.input}
+                  type="text"
+                  name="username"
+                  placeholder="Ví dụ: thanhphuoc"
+                  value={formData.username}
+                  onChange={handleChange}
+                />
+              </div>
 
-        <div style={styles.googleWrapper}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setErrorMsg("Không thể kết nối với Google")}
-            text="signup_with"
-            shape="rectangular"
-            size="large"
-            width="100%"
-          />
-        </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Địa chỉ Email</label>
+                <input
+                  style={styles.input}
+                  type="email"
+                  name="email"
+                  placeholder="Ví dụ: hoten123@gmail.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
 
-        <div style={styles.footer}>
-          Đã có tài khoản?{" "}
-          <Link to="/login" style={styles.link}>
-            Đăng nhập ngay
-          </Link>
-        </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Tên hiển thị (Nickname)</label>
+                <input
+                  style={styles.input}
+                  type="text"
+                  name="displayName"
+                  placeholder="Tên bạn muốn mọi người gọi"
+                  value={formData.displayName}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Mật khẩu bảo mật</label>
+                <input
+                  style={styles.input}
+                  type="password"
+                  name="password"
+                  placeholder="Tối thiểu 6 ký tự"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Xác nhận mật khẩu</label>
+                <input
+                  style={styles.input}
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Nhập lại mật khẩu ở trên"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                style={{
+                  ...styles.submitBtn,
+                  ...(isLoading ? styles.submitBtnDisabled : {}),
+                }}
+              >
+                {isLoading ? "Đang xử lý hồ sơ..." : "Hoàn Tất Đăng Ký"}
+              </button>
+            </form>
+
+            <div style={styles.divider}>
+              <span style={styles.dividerLine}></span>
+              <span style={styles.dividerText}>Hoặc</span>
+              <span style={styles.dividerLine}></span>
+            </div>
+
+            <div style={styles.googleWrapper}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setErrorMsg("Không thể kết nối với Google")}
+                text="signup_with"
+                shape="rectangular"
+                size="large"
+                width="100%"
+              />
+            </div>
+
+            <div style={styles.footer}>
+              Đã có tài khoản?{" "}
+              <Link to="/login" style={styles.link}>
+                Đăng nhập ngay
+              </Link>
+            </div>
+          </>
+        )}
+
+        {/* --- GIAO DIỆN BƯỚC 2: FORM NHẬP OTP --- */}
+        {step === 2 && (
+          <form onSubmit={handleVerifyOTP} style={styles.form} noValidate>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Nhập mã OTP (6 số)</label>
+              <input
+                style={{
+                  ...styles.input,
+                  textAlign: "center",
+                  fontSize: "20px",
+                  letterSpacing: "4px",
+                }}
+                type="text"
+                maxLength="6"
+                placeholder="123456"
+                value={otp}
+                onChange={(e) => {
+                  setOtp(e.target.value.replace(/[^0-9]/g, "")); // Chỉ cho phép nhập số
+                  if (errorMsg) setErrorMsg("");
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              style={{
+                ...styles.submitBtn,
+                backgroundColor: "#10b981", // Đổi màu xanh lá cho nút xác nhận
+                boxShadow: "0 4px 14px 0 rgba(16, 185, 129, 0.39)",
+                ...(isLoading ? styles.submitBtnDisabled : {}),
+              }}
+            >
+              {isLoading ? "Đang kiểm tra..." : "Xác Nhận & Đăng Nhập"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep(1)} // Nút quay lại bước 1
+              style={{
+                ...styles.submitBtn,
+                backgroundColor: "transparent",
+                color: "#64748b",
+                boxShadow: "none",
+                marginTop: "0px",
+                border: "1px solid #cbd5e1",
+              }}
+            >
+              Quay lại chỉnh sửa Email
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -268,7 +378,7 @@ const styles = {
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "18px", // Chỉnh gap nhỏ lại một xíu để form không bị quá dài
+    gap: "18px",
   },
   inputGroup: {
     display: "flex",
