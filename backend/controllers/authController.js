@@ -232,7 +232,7 @@ exports.forgotPassword = async (req, res) => {
     const emailData = {
       sender: {
         name: "Hệ thống Soạn thảo",
-        email: "thanhphuoc266.ntp@gmail.com",
+        email: "iorisei1001@gmail.com",
       },
       to: [{ email: user.email }],
       subject: "Mã OTP Khôi phục mật khẩu",
