@@ -6,10 +6,10 @@ const connectDB = require("./config/db");
 const app = express();
 const PORT = process.env.PORT || 1410;
 
-// --- CẤU HÌNH CORS SIÊU CẤP: CHẤP NHẬN MỌI NGUỒN ---
+// --- CẤU HÌNH CORS "CHỦ TỊCH": CHẤP NHẬN TẤT CẢ CÁC LINK ---
 app.use(
   cors({
-    origin: true, // Cho phép tất cả các domain (Vercel, localhost, ...) truy cập
+    origin: true, // <--- Dòng này cực kỳ quan trọng: Cho phép mọi domain truy cập
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   }),
