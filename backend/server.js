@@ -6,14 +6,17 @@ const connectDB = require("./config/db");
 const app = express();
 const PORT = process.env.PORT || 1410;
 
-// --- ĐOẠN CODE CORS ĐÃ ĐƯỢC CẤP QUYỀN CHO VERCEL ---
+// --- ĐÃ NÂNG CẤP BẢO VỆ CORS ĐỂ KHÔNG BAO GIỜ BỊ CHẶN NỮA ---
 app.use(
   cors({
     origin: [
       "http://localhost:5173", // Link test ở máy tính
-      "https://collaborative-editor-g296-delta.vercel.app", // Link Vercel chính thức
+      "https://collaborative-editor-g296-delta.vercel.app", // Link Vercel cũ
+      "https://collaborative-editor-inky.vercel.app", // <-- Đã cấp thẻ VIP cho link hiện tại của bạn!
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    // Mẹo Pro: Nếu sau này bạn vẫn bị lỗi CORS do đổi link mới, hãy xóa cái mảng 'origin' ở trên đi và thay bằng một dòng ngắn gọn này:
+    // origin: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   }),
 );
