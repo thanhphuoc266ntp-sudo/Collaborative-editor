@@ -2,11 +2,12 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
+const axios = require("axios");
 const { OAuth2Client } = require("google-auth-library");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// 1. ĐĂNG KÝ TÀI KHOẢN (Tạo user, gửi mã OTP, chưa cho đăng nhập)
 exports.register = async (req, res) => {
   try {
     const { username, email, password, displayName } = req.body;
@@ -21,32 +22,53 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Tạo mã OTP 6 số để xác thực đăng ký
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
       displayName,
       userColor: "#" + Math.floor(Math.random() * 16777215).toString(16),
+      // Lưu tạm OTP vào đây để check xác thực
+      resetPasswordOtp: otp,
+      resetPasswordOtpExpires: Date.now() + 15 * 60 * 1000,
     });
 
     await newUser.save();
 
-    const token = jwt.sign(
-      { userId: newUser._id, username: newUser.username },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" },
-    );
-
-    res.status(201).json({
-      message: "Đăng ký tài khoản thành công!",
-      token,
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        displayName: newUser.displayName,
-        color: newUser.userColor,
+    // Gọi API của Brevo để gửi mail OTP đăng ký
+    const emailData = {
+      sender: {
+        name: "Hệ thống Soạn thảo",
+        email: "thanhphuoc266.ntp@gmail.com",
       },
+      to: [{ email: newUser.email }],
+      subject: "Mã OTP Xác thực tài khoản mới",
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+          <h2>Chào mừng bạn đến với Hệ thống Soạn thảo!</h2>
+          <p>Mã OTP để kích hoạt tài khoản của bạn là:</p>
+          <h1 style="color: #28a745; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+          <p>Mã này có hiệu lực trong 15 phút. Vui lòng nhập mã này trên web để hoàn tất đăng ký.</p>
+        </div>
+      `,
+    };
+
+    const config = {
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "Content-Type": "application/json",
+      },
+    };
+
+    await axios.post("https://api.brevo.com/v3/smtp/email", emailData, config);
+
+    // Gửi phản hồi về frontend (KHÔNG kèm token đăng nhập)
+    res.status(201).json({
+      message: "Mã xác thực đã được gửi vào Email của bạn. Vui lòng kiểm tra!",
+      email: newUser.email,
     });
   } catch (error) {
     console.error("Lỗi đăng ký:", error);
@@ -54,6 +76,54 @@ exports.register = async (req, res) => {
   }
 };
 
+// 2. XÁC THỰC ĐĂNG KÝ (Nhập OTP để hoàn tất và lấy Token đăng nhập)
+exports.verifyRegistration = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    // Tìm user có email và mã OTP hợp lệ
+    const user = await User.findOne({
+      email: email,
+      resetPasswordOtp: otp,
+      resetPasswordOtpExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Mã OTP không chính xác hoặc đã hết hạn!" });
+    }
+
+    // Xác thực thành công -> Xóa mã OTP
+    user.resetPasswordOtp = undefined;
+    user.resetPasswordOtpExpires = undefined;
+    await user.save();
+
+    // Cấp Token để đăng nhập thẳng vào hệ thống
+    const token = jwt.sign(
+      { userId: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" },
+    );
+
+    res.json({
+      message: "Xác thực thành công! Chào mừng bạn.",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        color: user.userColor,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi xác thực đăng ký:", error);
+    res.status(500).json({ message: "Lỗi hệ thống!" });
+  }
+};
+
+// 3. ĐĂNG NHẬP BÌNH THƯỜNG
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -94,6 +164,7 @@ exports.login = async (req, res) => {
   }
 };
 
+// 4. ĐĂNG NHẬP BẰNG GOOGLE
 exports.googleLogin = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -140,7 +211,7 @@ exports.googleLogin = async (req, res) => {
   }
 };
 
-// QUÊN MẬT KHẨU (Gửi OTP)
+// 5. QUÊN MẬT KHẨU (Gửi OTP)
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -152,26 +223,20 @@ exports.forgotPassword = async (req, res) => {
         .json({ message: "Không tìm thấy tài khoản với email này!" });
     }
 
-    // Tạo mã OTP 6 số ngẫu nhiên
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     user.resetPasswordOtp = otp;
-    user.resetPasswordOtpExpires = Date.now() + 15 * 60 * 1000; // OTP sống trong 15 phút
+    user.resetPasswordOtpExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+    const emailData = {
+      sender: {
+        name: "Hệ thống Soạn thảo",
+        email: "thanhphuoc266.ntp@gmail.com",
       },
-    });
-
-    const mailOptions = {
-      from: '"Hệ thống Soạn thảo" <' + process.env.EMAIL_USER + ">",
-      to: user.email,
+      to: [{ email: user.email }],
       subject: "Mã OTP Khôi phục mật khẩu",
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
           <h2>Yêu cầu đặt lại mật khẩu</h2>
           <p>Mã OTP xác thực của bạn là:</p>
@@ -181,20 +246,30 @@ exports.forgotPassword = async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    const config = {
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "Content-Type": "application/json",
+      },
+    };
+
+    await axios.post("https://api.brevo.com/v3/smtp/email", emailData, config);
+
     res.json({ message: "Mã OTP đã được gửi đến email của bạn!" });
   } catch (error) {
-    console.error("Lỗi quên mật khẩu:", error);
+    console.error(
+      "Lỗi gửi email Brevo:",
+      error.response?.data || error.message,
+    );
     res.status(500).json({ message: "Lỗi hệ thống khi gửi email!" });
   }
 };
 
-// ĐẶT LẠI MẬT KHẨU (Xác thực OTP)
+// 6. ĐẶT LẠI MẬT KHẨU (Xác thực OTP)
 exports.resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
-    // Tìm user khớp email, OTP và OTP chưa hết hạn
     const user = await User.findOne({
       email: email,
       resetPasswordOtp: otp,
@@ -210,7 +285,6 @@ exports.resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 
-    // Xóa OTP sau khi đổi mật khẩu thành công
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
     await user.save();
