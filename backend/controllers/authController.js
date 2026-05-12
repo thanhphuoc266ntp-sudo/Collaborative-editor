@@ -1,3 +1,4 @@
+require("dotenv").config();
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -7,7 +8,7 @@ const { OAuth2Client } = require("google-auth-library");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// 1. ĐĂNG KÝ TÀI KHOẢN (Tạo user, gửi mã OTP, chưa cho đăng nhập)
+// 1. ĐĂNG KÝ TÀI KHOẢN (Tạo user, gửi mã OTP)
 exports.register = async (req, res) => {
   try {
     const { username, email, password, displayName } = req.body;
@@ -22,7 +23,7 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Tạo mã OTP 6 số để xác thực đăng ký
+    // Tạo mã OTP 6 số
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const newUser = new User({
@@ -31,18 +32,17 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       displayName,
       userColor: "#" + Math.floor(Math.random() * 16777215).toString(16),
-      // Lưu tạm OTP vào đây để check xác thực
       resetPasswordOtp: otp,
       resetPasswordOtpExpires: Date.now() + 15 * 60 * 1000,
     });
 
     await newUser.save();
 
-    // Gọi API của Brevo để gửi mail OTP đăng ký
+    // Gọi API của Brevo để gửi mail OTP (SỬ DỤNG EMAIL ĐÃ VERIFIED)
     const emailData = {
       sender: {
         name: "Hệ thống Soạn thảo",
-        email: "thanhphuoc266.ntp@gmail.com",
+        email: "iorisei1001@gmail.com", // <-- Đã sửa thành email đã xác thực
       },
       to: [{ email: newUser.email }],
       subject: "Mã OTP Xác thực tài khoản mới",
@@ -65,23 +65,21 @@ exports.register = async (req, res) => {
 
     await axios.post("https://api.brevo.com/v3/smtp/email", emailData, config);
 
-    // Gửi phản hồi về frontend (KHÔNG kèm token đăng nhập)
     res.status(201).json({
       message: "Mã xác thực đã được gửi vào Email của bạn. Vui lòng kiểm tra!",
       email: newUser.email,
     });
   } catch (error) {
-    console.error("Lỗi đăng ký:", error);
+    console.error("Lỗi đăng ký:", error.response?.data || error.message);
     res.status(500).json({ message: "Lỗi server, vui lòng thử lại sau!" });
   }
 };
 
-// 2. XÁC THỰC ĐĂNG KÝ (Nhập OTP để hoàn tất và lấy Token đăng nhập)
+// 2. XÁC THỰC ĐĂNG KÝ
 exports.verifyRegistration = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    // Tìm user có email và mã OTP hợp lệ
     const user = await User.findOne({
       email: email,
       resetPasswordOtp: otp,
@@ -94,12 +92,10 @@ exports.verifyRegistration = async (req, res) => {
         .json({ message: "Mã OTP không chính xác hoặc đã hết hạn!" });
     }
 
-    // Xác thực thành công -> Xóa mã OTP
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
     await user.save();
 
-    // Cấp Token để đăng nhập thẳng vào hệ thống
     const token = jwt.sign(
       { userId: user._id, username: user.username },
       process.env.JWT_SECRET,
@@ -131,8 +127,7 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ username });
     if (!user || !user.password) {
       return res.status(400).json({
-        message:
-          "Tên đăng nhập không đúng hoặc tài khoản này dùng Google để đăng nhập!",
+        message: "Tên đăng nhập không đúng hoặc tài khoản này dùng Google!",
       });
     }
 
@@ -232,7 +227,7 @@ exports.forgotPassword = async (req, res) => {
     const emailData = {
       sender: {
         name: "Hệ thống Soạn thảo",
-        email: "iorisei1001@gmail.com",
+        email: "iorisei1001@gmail.com", // <-- Đã sửa đồng bộ
       },
       to: [{ email: user.email }],
       subject: "Mã OTP Khôi phục mật khẩu",
@@ -257,15 +252,12 @@ exports.forgotPassword = async (req, res) => {
 
     res.json({ message: "Mã OTP đã được gửi đến email của bạn!" });
   } catch (error) {
-    console.error(
-      "Lỗi gửi email Brevo:",
-      error.response?.data || error.message,
-    );
+    console.error("Lỗi quên mật khẩu:", error.response?.data || error.message);
     res.status(500).json({ message: "Lỗi hệ thống khi gửi email!" });
   }
 };
 
-// 6. ĐẶT LẠI MẬT KHẨU (Xác thực OTP)
+// 6. ĐẶT LẠI MẬT KHẨU
 exports.resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
