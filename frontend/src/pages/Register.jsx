@@ -6,7 +6,6 @@ import { GoogleLogin } from "@react-oauth/google";
 const Register = () => {
   const navigate = useNavigate();
 
-  // Thêm state "step" để biết đang ở bước 1 (Điền form) hay bước 2 (Nhập OTP)
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState("");
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -25,16 +24,18 @@ const Register = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+
     if (errorMsg) setErrorMsg("");
   };
 
-  // --- BƯỚC 1: XỬ LÝ ĐĂNG KÝ (GỌI API GỬI MAIL) ---
   const handleRegister = async (e) => {
     e.preventDefault();
+
     const { username, email, password, confirmPassword, displayName } =
       formData;
 
@@ -49,6 +50,11 @@ const Register = () => {
       return;
     }
 
+    if (username.trim().length < 3) {
+      setErrorMsg("Tên đăng nhập phải có ít nhất 3 ký tự!");
+      return;
+    }
+
     if (password.length < 6) {
       setErrorMsg("Mật khẩu phải có ít nhất 6 ký tự!");
       return;
@@ -60,17 +66,17 @@ const Register = () => {
     }
 
     setErrorMsg("");
+    setSuccessMsg("");
     setIsLoading(true);
 
     try {
       const res = await API.post("/auth/register", {
         username: username.trim(),
         email: email.trim(),
-        password: password,
+        password,
         displayName: displayName.trim(),
       });
 
-      // Đăng ký thành công -> Lưu email lại và chuyển sang bước 2 (Nhập OTP)
       setRegisteredEmail(res.data.email || email.trim());
       setSuccessMsg(res.data.message);
       setStep(2);
@@ -83,11 +89,16 @@ const Register = () => {
     }
   };
 
-  // --- BƯỚC 2: XỬ LÝ XÁC NHẬN OTP ---
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
+
     if (!otp.trim()) {
       setErrorMsg("Vui lòng nhập mã OTP!");
+      return;
+    }
+
+    if (otp.trim().length !== 6) {
+      setErrorMsg("Mã OTP phải gồm 6 số!");
       return;
     }
 
@@ -100,7 +111,6 @@ const Register = () => {
         otp: otp.trim(),
       });
 
-      // Nếu thành công -> Lưu token và cho vào thẳng trang chủ
       localStorage.setItem("token", res.data.token);
       alert("Xác thực thành công! Chào mừng bạn.");
       navigate("/");
@@ -117,6 +127,8 @@ const Register = () => {
     try {
       setIsLoading(true);
       setErrorMsg("");
+      setSuccessMsg("");
+
       const res = await API.post("/auth/google-login", {
         idToken: credentialResponse.credential,
       });
@@ -135,36 +147,33 @@ const Register = () => {
     <div style={styles.pageWrapper}>
       <div style={styles.card}>
         <div style={styles.header}>
+          <div style={styles.logoCircle}>{step === 1 ? "✨" : "✉️"}</div>
+
           <h2 style={styles.title}>
-            {step === 1 ? "Tham gia ngay! ✨" : "Xác thực Email ✉️"}
+            {step === 1 ? "Tham gia ngay!" : "Xác thực Email"}
           </h2>
+
           <p style={styles.subtitle}>
             {step === 1
               ? "Tạo tài khoản để cùng nhau làm việc"
-              : `Mã 6 số đã được gửi tới ${registeredEmail}`}
+              : `Mã 6 số đang được gửi tới ${registeredEmail}`}
           </p>
         </div>
 
         {errorMsg && (
           <div style={styles.errorBox}>
-            <span style={{ marginRight: "8px" }}>⚠️</span> {errorMsg}
+            <span style={styles.boxIcon}>⚠️</span>
+            <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* Hiển thị thông báo thành công khi chuyển sang bước 2 */}
         {step === 2 && successMsg && !errorMsg && (
-          <div
-            style={{
-              ...styles.errorBox,
-              backgroundColor: "#dcfce7",
-              color: "#166534",
-            }}
-          >
-            <span style={{ marginRight: "8px" }}>✅</span> {successMsg}
+          <div style={styles.successBox}>
+            <span style={styles.boxIcon}>✅</span>
+            <span>{successMsg}</span>
           </div>
         )}
 
-        {/* --- GIAO DIỆN BƯỚC 1: FORM ĐĂNG KÝ --- */}
         {step === 1 && (
           <>
             <form onSubmit={handleRegister} style={styles.form} noValidate>
@@ -193,7 +202,7 @@ const Register = () => {
               </div>
 
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Tên hiển thị (Nickname)</label>
+                <label style={styles.label}>Tên hiển thị</label>
                 <input
                   style={styles.input}
                   type="text"
@@ -205,7 +214,7 @@ const Register = () => {
               </div>
 
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Mật khẩu bảo mật</label>
+                <label style={styles.label}>Mật khẩu</label>
                 <input
                   style={styles.input}
                   type="password"
@@ -222,7 +231,7 @@ const Register = () => {
                   style={styles.input}
                   type="password"
                   name="confirmPassword"
-                  placeholder="Nhập lại mật khẩu ở trên"
+                  placeholder="Nhập lại mật khẩu"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                 />
@@ -236,7 +245,7 @@ const Register = () => {
                   ...(isLoading ? styles.submitBtnDisabled : {}),
                 }}
               >
-                {isLoading ? "Đang xử lý hồ sơ..." : "Hoàn Tất Đăng Ký"}
+                {isLoading ? "Đang tạo tài khoản..." : "Hoàn Tất Đăng Ký"}
               </button>
             </form>
 
@@ -266,24 +275,18 @@ const Register = () => {
           </>
         )}
 
-        {/* --- GIAO DIỆN BƯỚC 2: FORM NHẬP OTP --- */}
         {step === 2 && (
           <form onSubmit={handleVerifyOTP} style={styles.form} noValidate>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Nhập mã OTP (6 số)</label>
+              <label style={styles.label}>Nhập mã OTP gồm 6 số</label>
               <input
-                style={{
-                  ...styles.input,
-                  textAlign: "center",
-                  fontSize: "20px",
-                  letterSpacing: "4px",
-                }}
+                style={styles.otpInput}
                 type="text"
                 maxLength="6"
                 placeholder="123456"
                 value={otp}
                 onChange={(e) => {
-                  setOtp(e.target.value.replace(/[^0-9]/g, "")); // Chỉ cho phép nhập số
+                  setOtp(e.target.value.replace(/[^0-9]/g, ""));
                   if (errorMsg) setErrorMsg("");
                 }}
               />
@@ -294,8 +297,8 @@ const Register = () => {
               disabled={isLoading}
               style={{
                 ...styles.submitBtn,
-                backgroundColor: "#10b981", // Đổi màu xanh lá cho nút xác nhận
-                boxShadow: "0 4px 14px 0 rgba(16, 185, 129, 0.39)",
+                backgroundColor: "#10b981",
+                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.39)",
                 ...(isLoading ? styles.submitBtnDisabled : {}),
               }}
             >
@@ -304,15 +307,14 @@ const Register = () => {
 
             <button
               type="button"
-              onClick={() => setStep(1)} // Nút quay lại bước 1
-              style={{
-                ...styles.submitBtn,
-                backgroundColor: "transparent",
-                color: "#64748b",
-                boxShadow: "none",
-                marginTop: "0px",
-                border: "1px solid #cbd5e1",
+              onClick={() => {
+                setStep(1);
+                setOtp("");
+                setErrorMsg("");
+                setSuccessMsg("");
               }}
+              disabled={isLoading}
+              style={styles.backBtn}
             >
               Quay lại chỉnh sửa Email
             </button>
@@ -323,7 +325,6 @@ const Register = () => {
   );
 };
 
-// Cập nhật thêm CSS
 const styles = {
   pageWrapper: {
     width: "100vw",
@@ -340,19 +341,30 @@ const styles = {
   card: {
     backgroundColor: "#ffffff",
     width: "100%",
-    maxWidth: "420px",
-    padding: "48px 40px",
-    borderRadius: "24px",
+    maxWidth: "430px",
+    padding: "42px 38px",
+    borderRadius: "26px",
     boxShadow:
-      "0 20px 40px -10px rgba(0,0,0,0.15), 0 10px 20px -5px rgba(0,0,0,0.1)",
+      "0 22px 45px -14px rgba(15, 23, 42, 0.35), 0 12px 22px -12px rgba(15, 23, 42, 0.22)",
     boxSizing: "border-box",
   },
   header: {
     textAlign: "center",
-    marginBottom: "35px",
+    marginBottom: "30px",
+  },
+  logoCircle: {
+    width: "58px",
+    height: "58px",
+    margin: "0 auto 14px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg, #eff6ff, #ede9fe)",
+    fontSize: "26px",
   },
   title: {
-    margin: "0 0 12px 0",
+    margin: "0 0 10px 0",
     color: "#0866ff",
     fontSize: "28px",
     fontWeight: "800",
@@ -363,37 +375,55 @@ const styles = {
     color: "#64748b",
     fontSize: "15px",
     fontWeight: "400",
+    lineHeight: "1.5",
   },
   errorBox: {
     backgroundColor: "#fef2f2",
     color: "#dc2626",
     padding: "14px 16px",
-    borderRadius: "12px",
-    marginBottom: "24px",
+    borderRadius: "14px",
+    marginBottom: "22px",
     fontSize: "14px",
     fontWeight: "500",
     display: "flex",
     alignItems: "center",
+    lineHeight: "1.4",
+  },
+  successBox: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    marginBottom: "22px",
+    fontSize: "14px",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    lineHeight: "1.4",
+  },
+  boxIcon: {
+    marginRight: "8px",
+    flexShrink: 0,
   },
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "18px",
+    gap: "17px",
   },
   inputGroup: {
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "7px",
   },
   label: {
     fontSize: "14px",
     color: "#334155",
-    fontWeight: "600",
+    fontWeight: "650",
   },
   input: {
     width: "100%",
     padding: "14px 16px",
-    borderRadius: "12px",
+    borderRadius: "13px",
     border: "1px solid #cbd5e1",
     backgroundColor: "#f8fafc",
     fontSize: "15px",
@@ -402,24 +432,51 @@ const styles = {
     boxSizing: "border-box",
     transition: "border-color 0.2s ease, box-shadow 0.2s ease",
   },
+  otpInput: {
+    width: "100%",
+    padding: "16px",
+    borderRadius: "14px",
+    border: "1px solid #cbd5e1",
+    backgroundColor: "#f8fafc",
+    fontSize: "24px",
+    color: "#0f172a",
+    outline: "none",
+    boxSizing: "border-box",
+    textAlign: "center",
+    letterSpacing: "7px",
+    fontWeight: "800",
+  },
   submitBtn: {
-    marginTop: "12px",
+    marginTop: "10px",
     width: "100%",
     padding: "16px",
     backgroundColor: "#0866ff",
     color: "#ffffff",
     border: "none",
-    borderRadius: "12px",
+    borderRadius: "13px",
     fontSize: "16px",
-    fontWeight: "700",
+    fontWeight: "750",
     cursor: "pointer",
-    boxShadow: "0 4px 14px 0 rgba(8, 102, 255, 0.39)",
+    boxShadow: "0 4px 14px rgba(8, 102, 255, 0.39)",
     transition: "all 0.2s ease",
   },
   submitBtnDisabled: {
     backgroundColor: "#94a3b8",
     boxShadow: "none",
     cursor: "wait",
+  },
+  backBtn: {
+    width: "100%",
+    padding: "15px",
+    backgroundColor: "transparent",
+    color: "#64748b",
+    border: "1px solid #cbd5e1",
+    borderRadius: "13px",
+    fontSize: "15px",
+    fontWeight: "650",
+    cursor: "pointer",
+    boxShadow: "none",
+    marginTop: "0px",
   },
   divider: {
     display: "flex",
@@ -442,7 +499,7 @@ const styles = {
     justifyContent: "center",
   },
   footer: {
-    marginTop: "32px",
+    marginTop: "30px",
     textAlign: "center",
     fontSize: "14px",
     color: "#64748b",
@@ -450,7 +507,7 @@ const styles = {
   link: {
     color: "#0866ff",
     textDecoration: "none",
-    fontWeight: "600",
+    fontWeight: "700",
     marginLeft: "6px",
   },
 };

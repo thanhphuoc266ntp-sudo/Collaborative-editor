@@ -4,19 +4,15 @@ import API from "../services/api";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
 
-  // Dữ liệu form
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
-
-  // Trạng thái thông báo
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Hàm dọn dẹp khi muốn nhập email khác
   const handleTryAnotherEmail = () => {
     setStep(1);
     setEmail("");
@@ -26,11 +22,9 @@ const ForgotPassword = () => {
     setErrorMsg("");
   };
 
-  // Xử lý gửi Email
   const handleSendEmail = async (e) => {
     e.preventDefault();
 
-    // Kiểm tra rỗng bằng React
     if (!email.trim()) {
       setErrorMsg("Vui lòng nhập địa chỉ email của bạn!");
       return;
@@ -44,7 +38,8 @@ const ForgotPassword = () => {
       const res = await API.post("/auth/forgot-password", {
         email: email.trim(),
       });
-      setMessage(res.data.message || "Đã gửi mã OTP!");
+
+      setMessage(res.data.message || "Mã OTP đang được gửi đến email của bạn!");
       setStep(2);
     } catch (error) {
       setErrorMsg(
@@ -55,18 +50,16 @@ const ForgotPassword = () => {
     }
   };
 
-  // Xử lý xác nhận OTP & Đổi mật khẩu
   const handleResetPassword = async (e) => {
     e.preventDefault();
 
-    // Kiểm tra rỗng bằng React
     if (!otp.trim() || !newPassword.trim()) {
       setErrorMsg("Vui lòng nhập đầy đủ mã OTP và mật khẩu mới!");
       return;
     }
 
-    if (otp.length < 6) {
-      setErrorMsg("Mã OTP phải có đủ 6 chữ số!");
+    if (otp.trim().length !== 6) {
+      setErrorMsg("Mã OTP phải có đúng 6 chữ số!");
       return;
     }
 
@@ -76,19 +69,26 @@ const ForgotPassword = () => {
     }
 
     setErrorMsg("");
+    setMessage("");
     setIsLoading(true);
 
     try {
       const res = await API.post("/auth/reset-password", {
         email: email.trim(),
-        otp,
+        otp: otp.trim(),
         newPassword,
       });
+
       setMessage(res.data.message || "Đổi mật khẩu thành công!");
       setErrorMsg("");
-      setTimeout(() => navigate("/login"), 2000);
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     } catch (error) {
-      setErrorMsg(error.response?.data?.message || "Mã OTP không hợp lệ!");
+      setErrorMsg(
+        error.response?.data?.message || "Mã OTP không hợp lệ hoặc đã hết hạn!",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -98,19 +98,31 @@ const ForgotPassword = () => {
     <div style={styles.pageWrapper}>
       <div style={styles.card}>
         <div style={styles.header}>
+          <div style={styles.logoCircle}>{step === 1 ? "🔒" : "✉️"}</div>
+
           <h2 style={styles.title}>
-            {step === 1 ? "Quên Mật Khẩu? 🔒" : "Nhập Mã OTP ✉️"}
+            {step === 1 ? "Quên Mật Khẩu?" : "Nhập Mã OTP"}
           </h2>
+
           <p style={styles.subtitle}>
             {step === 1
               ? "Nhập email của bạn để nhận mã xác thực 6 số"
-              : `Mã đã được gửi tới ${email}`}
+              : `Mã OTP đang được gửi tới ${email}`}
           </p>
         </div>
 
-        {errorMsg && <div style={styles.errorBox}>⚠️ {errorMsg}</div>}
-        {message && step === 2 && (
-          <div style={styles.successBox}>✅ {message}</div>
+        {errorMsg && (
+          <div style={styles.errorBox}>
+            <span style={styles.boxIcon}>⚠️</span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {message && step === 2 && !errorMsg && (
+          <div style={styles.successBox}>
+            <span style={styles.boxIcon}>✅</span>
+            <span>{message}</span>
+          </div>
         )}
 
         {step === 1 ? (
@@ -122,10 +134,13 @@ const ForgotPassword = () => {
                 type="email"
                 placeholder="VD: email@gmail.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                // Đã xóa required ở đây
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errorMsg) setErrorMsg("");
+                }}
               />
             </div>
+
             <button
               type="submit"
               disabled={isLoading}
@@ -134,29 +149,26 @@ const ForgotPassword = () => {
                 ...(isLoading ? styles.btnDisabled : {}),
               }}
             >
-              {isLoading ? "Đang gửi..." : "Gửi Mã OTP"}
+              {isLoading ? "Đang xử lý..." : "Gửi Mã OTP"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleResetPassword} style={styles.form} noValidate>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Mã OTP (6 số)</label>
+              <label style={styles.label}>Mã OTP gồm 6 số</label>
               <input
-                style={{
-                  ...styles.input,
-                  textAlign: "center",
-                  letterSpacing: "5px",
-                  fontSize: "18px",
-                  fontWeight: "bold",
-                }}
+                style={styles.otpInput}
                 type="text"
                 maxLength="6"
-                placeholder="••••••"
+                placeholder="123456"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                // Đã xóa required ở đây
+                onChange={(e) => {
+                  setOtp(e.target.value.replace(/\D/g, ""));
+                  if (errorMsg) setErrorMsg("");
+                }}
               />
             </div>
+
             <div style={styles.inputGroup}>
               <label style={styles.label}>Mật khẩu mới</label>
               <input
@@ -164,28 +176,34 @@ const ForgotPassword = () => {
                 type="password"
                 placeholder="Tối thiểu 6 ký tự"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                // Đã xóa required và minLength ở đây
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (errorMsg) setErrorMsg("");
+                }}
               />
             </div>
+
             <button
               type="submit"
               disabled={isLoading}
               style={{
                 ...styles.submitBtn,
+                backgroundColor: "#10b981",
+                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.39)",
                 ...(isLoading ? styles.btnDisabled : {}),
               }}
             >
               {isLoading ? "Đang xác thực..." : "Cập Nhật Mật Khẩu"}
             </button>
-            <div style={{ textAlign: "center", marginTop: "10px" }}>
-              <span
-                onClick={handleTryAnotherEmail}
-                style={{ ...styles.link, cursor: "pointer", fontSize: "13px" }}
-              >
-                Thử dùng email khác
-              </span>
-            </div>
+
+            <button
+              type="button"
+              onClick={handleTryAnotherEmail}
+              disabled={isLoading}
+              style={styles.backBtn}
+            >
+              Thử dùng email khác
+            </button>
           </form>
         )}
 
@@ -200,83 +218,168 @@ const ForgotPassword = () => {
   );
 };
 
-// CSS giữ nguyên
 const styles = {
   pageWrapper: {
     width: "100vw",
     minHeight: "100vh",
+    margin: 0,
+    padding: "20px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    boxSizing: "border-box",
   },
   card: {
     backgroundColor: "#ffffff",
     width: "100%",
-    maxWidth: "400px",
-    padding: "50px 40px",
-    borderRadius: "24px",
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+    maxWidth: "420px",
+    padding: "44px 38px",
+    borderRadius: "26px",
+    boxShadow:
+      "0 22px 45px -14px rgba(15, 23, 42, 0.35), 0 12px 22px -12px rgba(15, 23, 42, 0.22)",
     boxSizing: "border-box",
   },
-  header: { textAlign: "center", marginBottom: "35px" },
+  header: {
+    textAlign: "center",
+    marginBottom: "30px",
+  },
+  logoCircle: {
+    width: "58px",
+    height: "58px",
+    margin: "0 auto 14px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg, #eff6ff, #ede9fe)",
+    fontSize: "26px",
+  },
   title: {
     margin: "0 0 10px 0",
     color: "#0866ff",
     fontSize: "28px",
     fontWeight: "800",
+    letterSpacing: "-0.5px",
   },
-  subtitle: { margin: "0", color: "#64748b", fontSize: "15px" },
+  subtitle: {
+    margin: "0",
+    color: "#64748b",
+    fontSize: "15px",
+    fontWeight: "400",
+    lineHeight: "1.5",
+  },
   errorBox: {
-    backgroundColor: "#fff1f2",
-    color: "#e11d48",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "25px",
+    backgroundColor: "#fef2f2",
+    color: "#dc2626",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    marginBottom: "22px",
     fontSize: "14px",
-    borderLeft: "4px solid #e11d48",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    lineHeight: "1.4",
   },
   successBox: {
-    backgroundColor: "#f0fdf4",
-    color: "#16a34a",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "25px",
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    marginBottom: "22px",
     fontSize: "14px",
-    borderLeft: "4px solid #16a34a",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    lineHeight: "1.4",
   },
-  form: { display: "flex", flexDirection: "column", gap: "22px" },
-  inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
-  label: { fontSize: "14px", color: "#334155", fontWeight: "600" },
+  boxIcon: {
+    marginRight: "8px",
+    flexShrink: 0,
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "18px",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  label: {
+    fontSize: "14px",
+    color: "#334155",
+    fontWeight: "650",
+  },
   input: {
     width: "100%",
-    padding: "14px",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
+    padding: "14px 16px",
+    borderRadius: "13px",
+    border: "1px solid #cbd5e1",
     backgroundColor: "#f8fafc",
+    fontSize: "15px",
+    color: "#0f172a",
     outline: "none",
     boxSizing: "border-box",
   },
+  otpInput: {
+    width: "100%",
+    padding: "16px",
+    borderRadius: "14px",
+    border: "1px solid #cbd5e1",
+    backgroundColor: "#f8fafc",
+    fontSize: "24px",
+    color: "#0f172a",
+    outline: "none",
+    boxSizing: "border-box",
+    textAlign: "center",
+    letterSpacing: "7px",
+    fontWeight: "800",
+  },
   submitBtn: {
+    marginTop: "10px",
+    width: "100%",
     padding: "16px",
     backgroundColor: "#0866ff",
-    color: "#fff",
+    color: "#ffffff",
     border: "none",
-    borderRadius: "12px",
+    borderRadius: "13px",
     fontSize: "16px",
-    fontWeight: "700",
+    fontWeight: "750",
     cursor: "pointer",
-    boxShadow: "0 10px 15px -3px rgba(8, 102, 255, 0.3)",
+    boxShadow: "0 4px 14px rgba(8, 102, 255, 0.39)",
   },
-  btnDisabled: { backgroundColor: "#94a3b8", cursor: "not-allowed" },
+  btnDisabled: {
+    backgroundColor: "#94a3b8",
+    boxShadow: "none",
+    cursor: "wait",
+  },
+  backBtn: {
+    width: "100%",
+    padding: "15px",
+    backgroundColor: "transparent",
+    color: "#64748b",
+    border: "1px solid #cbd5e1",
+    borderRadius: "13px",
+    fontSize: "15px",
+    fontWeight: "650",
+    cursor: "pointer",
+    boxShadow: "none",
+    marginTop: "0px",
+  },
   footer: {
     marginTop: "30px",
     textAlign: "center",
     fontSize: "14px",
     color: "#64748b",
   },
-  link: { color: "#0866ff", textDecoration: "none", fontWeight: "600" },
+  link: {
+    color: "#0866ff",
+    textDecoration: "none",
+    fontWeight: "700",
+  },
 };
 
 export default ForgotPassword;
