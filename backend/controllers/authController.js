@@ -73,13 +73,36 @@ exports.register = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({
-      $or: [{ username: username.trim() }, { email: email.trim() }],
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanDisplayName = displayName.trim();
+
+    if (cleanUsername.length < 3) {
+      return res.status(400).json({
+        message: "Tên đăng nhập phải có ít nhất 3 ký tự!",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Mật khẩu phải có ít nhất 6 ký tự!",
+      });
+    }
+
+    const existingEmailUser = await User.findOne({ email: cleanEmail });
+    const existingUsernameUser = await User.findOne({
+      username: cleanUsername,
     });
 
-    if (existingUser) {
+    if (existingEmailUser && existingEmailUser.isVerified !== false) {
       return res.status(400).json({
-        message: "Tên đăng nhập hoặc Email đã tồn tại!",
+        message: "Email này đã được đăng ký!",
+      });
+    }
+
+    if (existingUsernameUser && existingUsernameUser.email !== cleanEmail) {
+      return res.status(400).json({
+        message: "Tên đăng nhập đã tồn tại!",
       });
     }
 
@@ -87,25 +110,40 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
     const otp = generateOtp();
 
-    const newUser = new User({
-      username: username.trim(),
-      email: email.trim(),
-      password: hashedPassword,
-      displayName: displayName.trim(),
-      userColor: generateUserColor(),
-      resetPasswordOtp: otp,
-      resetPasswordOtpExpires: Date.now() + 15 * 60 * 1000,
-    });
+    let user;
 
-    await newUser.save();
+    if (existingEmailUser && existingEmailUser.isVerified === false) {
+      existingEmailUser.username = cleanUsername;
+      existingEmailUser.password = hashedPassword;
+      existingEmailUser.displayName = cleanDisplayName;
+      existingEmailUser.userColor =
+        existingEmailUser.userColor || generateUserColor();
+      existingEmailUser.resetPasswordOtp = otp;
+      existingEmailUser.resetPasswordOtpExpires = Date.now() + 15 * 60 * 1000;
+
+      user = await existingEmailUser.save();
+    } else {
+      user = new User({
+        username: cleanUsername,
+        email: cleanEmail,
+        password: hashedPassword,
+        displayName: cleanDisplayName,
+        userColor: generateUserColor(),
+        isVerified: false,
+        resetPasswordOtp: otp,
+        resetPasswordOtpExpires: Date.now() + 15 * 60 * 1000,
+      });
+
+      await user.save();
+    }
 
     res.status(201).json({
-      message: "Đăng ký thành công! Mã OTP đang được gửi đến email của bạn.",
-      email: newUser.email,
+      message: "Mã OTP đang được gửi đến email của bạn.",
+      email: user.email,
     });
 
     sendOtpEmail({
-      to: newUser.email,
+      to: user.email,
       subject: "Mã OTP Xác thực tài khoản mới",
       otp,
       type: "register",
@@ -134,7 +172,7 @@ exports.verifyRegistration = async (req, res) => {
     }
 
     const user = await User.findOne({
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       resetPasswordOtp: otp.trim(),
       resetPasswordOtpExpires: { $gt: Date.now() },
     });
@@ -145,6 +183,7 @@ exports.verifyRegistration = async (req, res) => {
       });
     }
 
+    user.isVerified = true;
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
     await user.save();
@@ -185,6 +224,12 @@ exports.login = async (req, res) => {
     if (!user || !user.password) {
       return res.status(400).json({
         message: "Tên đăng nhập không đúng hoặc tài khoản này dùng Google!",
+      });
+    }
+
+    if (user.isVerified === false) {
+      return res.status(403).json({
+        message: "Tài khoản chưa xác thực OTP. Vui lòng kiểm tra email!",
       });
     }
 
@@ -232,7 +277,10 @@ exports.googleLogin = async (req, res) => {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
-    const { sub: googleId, email, name: displayName } = ticket.getPayload();
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = payload.email;
+    const displayName = payload.name || email.split("@")[0];
 
     let user = await User.findOne({ email });
 
@@ -243,7 +291,17 @@ exports.googleLogin = async (req, res) => {
         googleId,
         displayName,
         userColor: generateUserColor(),
+        isVerified: true,
       });
+
+      await user.save();
+    } else {
+      user.googleId = user.googleId || googleId;
+      user.displayName = user.displayName || displayName;
+      user.userColor = user.userColor || generateUserColor();
+      user.isVerified = true;
+      user.resetPasswordOtp = undefined;
+      user.resetPasswordOtpExpires = undefined;
 
       await user.save();
     }
@@ -279,7 +337,7 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email: email.trim() });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
       return res.status(404).json({
@@ -326,8 +384,14 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự!",
+      });
+    }
+
     const user = await User.findOne({
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       resetPasswordOtp: otp.trim(),
       resetPasswordOtpExpires: { $gt: Date.now() },
     });
@@ -340,6 +404,7 @@ exports.resetPassword = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
+    user.isVerified = true;
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
     await user.save();

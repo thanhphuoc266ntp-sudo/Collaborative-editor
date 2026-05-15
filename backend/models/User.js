@@ -8,7 +8,8 @@ const userSchema = new mongoose.Schema(
     displayName: { type: String, required: true },
     userColor: { type: String, default: "#0088ff" },
     googleId: { type: String },
-    resetPasswordOtp: String, // Thay token bằng OTP
+    isVerified: { type: Boolean, default: false },
+    resetPasswordOtp: String,
     resetPasswordOtpExpires: Date,
   },
   { timestamps: true },
