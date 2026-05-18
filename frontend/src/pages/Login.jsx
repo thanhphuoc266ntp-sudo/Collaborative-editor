@@ -14,6 +14,14 @@ const Login = () => {
   };
 
   const createDocumentAndOpen = async (user) => {
+    const redirectPath = localStorage.getItem("redirectAfterLogin");
+
+    if (redirectPath && redirectPath.startsWith("/editor/")) {
+      localStorage.removeItem("redirectAfterLogin");
+      navigate(redirectPath);
+      return;
+    }
+
     const userId = getUserId(user);
 
     if (!userId) {

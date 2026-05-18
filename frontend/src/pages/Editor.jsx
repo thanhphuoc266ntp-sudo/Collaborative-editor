@@ -17,12 +17,14 @@ const Editor = () => {
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
+      localStorage.setItem("redirectAfterLogin", window.location.pathname);
       navigate("/login");
     }
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/login");
   };
 
