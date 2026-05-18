@@ -10,6 +10,7 @@ const documentSchema = new mongoose.Schema(
     documentId: {
       type: String,
       unique: true,
+      default: () => Math.random().toString(36).substring(2, 10),
     },
 
     owner: {
@@ -44,12 +45,5 @@ const documentSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
-
-documentSchema.pre("save", function (next) {
-  if (!this.documentId) {
-    this.documentId = Math.random().toString(36).substring(2, 10);
-  }
-  next();
-});
 
 module.exports = mongoose.model("Document", documentSchema);
