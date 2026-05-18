@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
-import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 
@@ -10,25 +9,7 @@ const COLLAB_URL =
   import.meta.env.VITE_COLLAB_URL ||
   "wss://collaborative-editor-zegd.onrender.com/collaboration";
 
-const getCurrentUser = () => {
-  try {
-    const userString = localStorage.getItem("user");
-    const user = userString ? JSON.parse(userString) : null;
-
-    return {
-      name: user?.displayName || user?.username || user?.email || "Người dùng",
-      color: user?.color || "#4f46e5",
-    };
-  } catch (error) {
-    return {
-      name: "Người dùng",
-      color: "#4f46e5",
-    };
-  }
-};
-
 const TiptapEditor = ({ ydoc, provider }) => {
-  const currentUser = getCurrentUser();
   const [status, setStatus] = useState("Đang kết nối CRDT...");
 
   const editor = useEditor({
@@ -38,10 +19,6 @@ const TiptapEditor = ({ ydoc, provider }) => {
       }),
       Collaboration.configure({
         document: ydoc,
-      }),
-      CollaborationCursor.configure({
-        provider,
-        user: currentUser,
       }),
     ],
   });
@@ -336,31 +313,6 @@ const styles = `
     line-height: 1.3;
     margin-top: 1.5em;
     margin-bottom: 0.5em;
-  }
-
-  .collaboration-cursor__caret {
-    border-left: 1px solid #0ea5e9;
-    border-right: 1px solid #0ea5e9;
-    margin-left: -1px;
-    margin-right: -1px;
-    pointer-events: none;
-    position: relative;
-    word-break: normal;
-  }
-
-  .collaboration-cursor__label {
-    border-radius: 3px 3px 3px 0;
-    color: #ffffff;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 600;
-    left: -1px;
-    line-height: normal;
-    padding: 2px 6px;
-    position: absolute;
-    top: -1.4em;
-    user-select: none;
-    white-space: nowrap;
   }
 
   .loading-screen {
