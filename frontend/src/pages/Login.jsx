@@ -9,17 +9,39 @@ const Login = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const getUserId = (user) => {
+    return user?._id || user?.id || user?.userId;
+  };
+
+  const createDocumentAndOpen = async (user) => {
+    const userId = getUserId(user);
+
+    if (!userId) {
+      throw new Error("Không tìm thấy userId để tạo tài liệu");
+    }
+
+    const createDocRes = await API.post("/documents/create", {
+      userId,
+      title: "Tài liệu không tên",
+    });
+
+    navigate(`/editor/${createDocRes.data.documentId}`);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Tự động xóa lỗi khi người dùng bắt đầu gõ lại
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
     if (errorMsg) setErrorMsg("");
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Kiểm tra rỗng bằng React
     if (!formData.username.trim() || !formData.password.trim()) {
       setErrorMsg("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!");
       return;
@@ -37,12 +59,12 @@ const Login = () => {
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
 
-      const documentId = Math.random().toString(36).substring(2, 10);
-
-      navigate(`/editor/${documentId}`);
+      await createDocumentAndOpen(response.data.user);
     } catch (error) {
       setErrorMsg(
-        error.response?.data?.message || "Thông tin đăng nhập không chính xác.",
+        error.response?.data?.message ||
+          error.message ||
+          "Thông tin đăng nhập không chính xác.",
       );
     } finally {
       setIsLoading(false);
@@ -61,10 +83,13 @@ const Login = () => {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      const documentId = Math.random().toString(36).substring(2, 10);
-      navigate(`/editor/${documentId}`);
+      await createDocumentAndOpen(res.data.user);
     } catch (error) {
-      setErrorMsg("Đăng nhập Google thất bại. Vui lòng thử lại!");
+      setErrorMsg(
+        error.response?.data?.message ||
+          error.message ||
+          "Đăng nhập Google thất bại. Vui lòng thử lại!",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +115,6 @@ const Login = () => {
               placeholder="Nhập tài khoản"
               value={formData.username}
               onChange={handleChange}
-              // Đã xóa required
             />
           </div>
 
@@ -101,6 +125,7 @@ const Login = () => {
                 Quên mật khẩu?
               </Link>
             </div>
+
             <input
               style={styles.input}
               type="password"
@@ -108,7 +133,6 @@ const Login = () => {
               placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
-              // Đã xóa required
             />
           </div>
 
@@ -171,14 +195,21 @@ const styles = {
     boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
     boxSizing: "border-box",
   },
-  header: { textAlign: "center", marginBottom: "35px" },
+  header: {
+    textAlign: "center",
+    marginBottom: "35px",
+  },
   title: {
     margin: "0 0 10px 0",
     color: "#0866ff",
     fontSize: "28px",
     fontWeight: "800",
   },
-  subtitle: { margin: "0", color: "#64748b", fontSize: "15px" },
+  subtitle: {
+    margin: "0",
+    color: "#64748b",
+    fontSize: "15px",
+  },
   errorBox: {
     backgroundColor: "#fff1f2",
     color: "#e11d48",
@@ -188,14 +219,26 @@ const styles = {
     fontSize: "14px",
     borderLeft: "4px solid #e11d48",
   },
-  form: { display: "flex", flexDirection: "column", gap: "22px" },
-  inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "22px",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
   labelRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  label: { fontSize: "14px", color: "#334155", fontWeight: "600" },
+  label: {
+    fontSize: "14px",
+    color: "#334155",
+    fontWeight: "600",
+  },
   forgotLink: {
     fontSize: "13px",
     color: "#0866ff",
@@ -222,7 +265,10 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 10px 15px -3px rgba(8, 102, 255, 0.3)",
   },
-  btnDisabled: { backgroundColor: "#94a3b8", cursor: "not-allowed" },
+  btnDisabled: {
+    backgroundColor: "#94a3b8",
+    cursor: "not-allowed",
+  },
   divider: {
     display: "flex",
     alignItems: "center",
@@ -249,7 +295,11 @@ const styles = {
     fontSize: "14px",
     color: "#64748b",
   },
-  link: { color: "#0866ff", textDecoration: "none", fontWeight: "600" },
+  link: {
+    color: "#0866ff",
+    textDecoration: "none",
+    fontWeight: "600",
+  },
 };
 
 export default Login;
