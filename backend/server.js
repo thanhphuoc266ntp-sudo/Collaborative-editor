@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-const { Server } = require("socket.io");
+const { Server: SocketIOServer } = require("socket.io");
 const connectDB = require("./config/db");
 const Document = require("./models/Document");
 
@@ -34,7 +34,61 @@ app.use("/api/documents", require("./routes/document"));
 
 const server = http.createServer(app);
 
-const io = new Server(server, {
+const startRealtimeServer = async () => {
+  const { Hocuspocus } = await import("@hocuspocus/server");
+  const { default: crossws } = await import("crossws/adapters/node");
+
+  const hocuspocus = new Hocuspocus({
+    name: "collaborative-editor-hocuspocus",
+
+    async onConnect(data) {
+      console.log("Hocuspocus client connected:", data.documentName);
+    },
+
+    async onDisconnect(data) {
+      console.log("Hocuspocus client disconnected:", data.documentName);
+    },
+  });
+
+  const ws = crossws({
+    hooks: {
+      open(peer) {
+        const clientConnection = hocuspocus.handleConnection(
+          peer.websocket,
+          peer.request,
+          {},
+        );
+
+        peer.hocuspocusConnection = clientConnection;
+      },
+
+      message(peer, message) {
+        peer.hocuspocusConnection?.handleMessage(message.uint8Array());
+      },
+
+      close(peer, event) {
+        peer.hocuspocusConnection?.handleClose({
+          code: event.code,
+          reason: event.reason,
+        });
+      },
+
+      error(peer, error) {
+        console.error("Hocuspocus WebSocket error:", error);
+      },
+    },
+  });
+
+  server.on("upgrade", (request, socket, head) => {
+    if (request.url && request.url.startsWith("/collaboration")) {
+      ws.handleUpgrade(request, socket, head);
+    }
+  });
+
+  console.log("✅ Hocuspocus realtime server đã sẵn sàng tại /collaboration");
+};
+
+const io = new SocketIOServer(server, {
   cors: {
     origin: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -43,7 +97,7 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("Người dùng đã kết nối:", socket.id);
+  console.log("Socket.IO người dùng đã kết nối:", socket.id);
 
   socket.on("join-document", (documentId) => {
     if (!documentId) return;
@@ -76,10 +130,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("Người dùng đã ngắt kết nối:", socket.id);
+    console.log("Socket.IO người dùng đã ngắt kết nối:", socket.id);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server đang chạy tại port ${PORT}`);
-});
+startRealtimeServer()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`🚀 Server đang chạy tại port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Không thể khởi động Hocuspocus:", error);
+    process.exit(1);
+  });

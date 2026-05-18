@@ -1,188 +1,84 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { io } from "socket.io-client";
-import API from "../services/api";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import * as Y from "yjs";
+import { HocuspocusProvider } from "@hocuspocus/provider";
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL ||
-  "https://collaborative-editor-zegd.onrender.com";
+const COLLAB_URL =
+  import.meta.env.VITE_COLLAB_URL ||
+  "wss://collaborative-editor-zegd.onrender.com/collaboration";
 
-const EditorComponent = ({ documentId }) => {
-  const socketRef = useRef(null);
-  const saveTimerRef = useRef(null);
-  const isRemoteChangeRef = useRef(false);
-  const latestContentRef = useRef("");
+const getCurrentUser = () => {
+  try {
+    const userString = localStorage.getItem("user");
+    const user = userString ? JSON.parse(userString) : null;
 
-  const [loading, setLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState("Đang tải tài liệu...");
+    return {
+      name: user?.displayName || user?.username || user?.email || "Người dùng",
+      color: user?.color || "#4f46e5",
+    };
+  } catch (error) {
+    return {
+      name: "Người dùng",
+      color: "#4f46e5",
+    };
+  }
+};
 
-  const saveDocument = async (content) => {
-    if (!documentId) return;
-
-    const data = content || latestContentRef.current || "";
-
-    const response = await API.put(`/documents/${documentId}`, {
-      content: data,
-    });
-
-    if (!response.data?.success) {
-      throw new Error(response.data?.message || "Lưu tài liệu thất bại");
-    }
-
-    return response.data;
-  };
+const TiptapEditor = ({ ydoc, provider }) => {
+  const currentUser = getCurrentUser();
+  const [status, setStatus] = useState("Đang kết nối CRDT...");
 
   const editor = useEditor({
-    extensions: [StarterKit],
-    content: "",
-    onUpdate: ({ editor }) => {
-      if (isRemoteChangeRef.current) return;
-      if (!documentId) return;
-
-      const content = JSON.stringify(editor.getJSON());
-      latestContentRef.current = content;
-
-      setSaveStatus("Đang lưu...");
-
-      if (socketRef.current) {
-        socketRef.current.emit("send-changes", {
-          documentId,
-          content,
-        });
-      }
-
-      clearTimeout(saveTimerRef.current);
-
-      saveTimerRef.current = setTimeout(async () => {
-        try {
-          await saveDocument(content);
-          setSaveStatus("Đã lưu trên đám mây");
-        } catch (error) {
-          setSaveStatus(error.message || "Lưu thất bại");
-        }
-      }, 800);
-    },
+    extensions: [
+      StarterKit.configure({
+        history: false,
+      }),
+      Collaboration.configure({
+        document: ydoc,
+      }),
+      CollaborationCursor.configure({
+        provider,
+        user: currentUser,
+      }),
+    ],
   });
 
   useEffect(() => {
-    if (!documentId || !editor) return;
+    if (!provider) return;
 
-    const loadDocument = async () => {
-      try {
-        setLoading(true);
-        setSaveStatus("Đang tải tài liệu...");
-
-        const response = await API.get(`/documents/${documentId}`);
-        const data = response.data;
-
-        if (!data.success) {
-          setSaveStatus(data.message || "Không tìm thấy tài liệu");
-          setLoading(false);
-          return;
-        }
-
-        const savedContent = data.document?.content || "";
-        latestContentRef.current = savedContent;
-
-        isRemoteChangeRef.current = true;
-
-        if (savedContent) {
-          try {
-            editor.commands.setContent(JSON.parse(savedContent), false);
-          } catch (error) {
-            editor.commands.setContent(savedContent, false);
-          }
-        } else {
-          editor.commands.setContent("", false);
-        }
-
-        setTimeout(() => {
-          isRemoteChangeRef.current = false;
-        }, 0);
-
-        setSaveStatus("Đã lưu trên đám mây");
-        setLoading(false);
-      } catch (error) {
-        setSaveStatus(
-          error.response?.data?.message ||
-            error.message ||
-            "Không thể tải tài liệu",
-        );
-        setLoading(false);
+    const handleStatus = ({ status }) => {
+      if (status === "connected") {
+        setStatus("Đã kết nối CRDT realtime");
+      } else if (status === "connecting") {
+        setStatus("Đang kết nối...");
+      } else {
+        setStatus("Mất kết nối realtime");
       }
     };
 
-    loadDocument();
-  }, [documentId, editor]);
+    const handleSynced = () => {
+      setStatus("Đã đồng bộ tài liệu");
+    };
 
-  useEffect(() => {
-    if (!documentId || !editor) return;
-
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
-      withCredentials: true,
-    });
-
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      socket.emit("join-document", documentId);
-    });
-
-    socket.on("receive-changes", (content) => {
-      if (!editor) return;
-
-      latestContentRef.current = content || "";
-      isRemoteChangeRef.current = true;
-
-      try {
-        editor.commands.setContent(JSON.parse(content), false);
-      } catch (error) {
-        editor.commands.setContent(content || "", false);
-      }
-
-      setTimeout(() => {
-        isRemoteChangeRef.current = false;
-      }, 0);
-    });
-
-    socket.on("connect_error", () => {
-      setSaveStatus("Mất kết nối realtime");
-    });
+    provider.on("status", handleStatus);
+    provider.on("synced", handleSynced);
 
     return () => {
-      socket.disconnect();
+      provider.off("status", handleStatus);
+      provider.off("synced", handleSynced);
     };
-  }, [documentId, editor]);
+  }, [provider]);
 
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (latestContentRef.current) {
-        navigator.sendBeacon(
-          `${SOCKET_URL}/api/documents/${documentId}`,
-          new Blob([JSON.stringify({ content: latestContentRef.current })], {
-            type: "application/json",
-          }),
-        );
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      clearTimeout(saveTimerRef.current);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [documentId]);
-
-  if (loading || !editor) {
+  if (!editor) {
     return (
       <>
         <style>{styles}</style>
         <div className="loading-screen">
           <div className="spinner"></div>
-          <p>{saveStatus}</p>
+          <p>Đang chuẩn bị editor CRDT...</p>
         </div>
       </>
     );
@@ -277,7 +173,7 @@ const EditorComponent = ({ documentId }) => {
             • Danh sách
           </button>
 
-          <div className="save-status">{saveStatus}</div>
+          <div className="save-status">{status}</div>
         </div>
 
         <div className="workspace">
@@ -288,6 +184,48 @@ const EditorComponent = ({ documentId }) => {
       </div>
     </>
   );
+};
+
+const EditorComponent = ({ documentId }) => {
+  const [network, setNetwork] = useState(null);
+
+  useEffect(() => {
+    if (!documentId) return;
+
+    const ydoc = new Y.Doc();
+
+    const provider = new HocuspocusProvider({
+      url: COLLAB_URL,
+      name: documentId,
+      document: ydoc,
+      connect: true,
+    });
+
+    setNetwork({
+      ydoc,
+      provider,
+    });
+
+    return () => {
+      provider.destroy();
+      ydoc.destroy();
+      setNetwork(null);
+    };
+  }, [documentId]);
+
+  if (!network) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="loading-screen">
+          <div className="spinner"></div>
+          <p>Đang kết nối Hocuspocus...</p>
+        </div>
+      </>
+    );
+  }
+
+  return <TiptapEditor ydoc={network.ydoc} provider={network.provider} />;
 };
 
 const styles = `
@@ -398,6 +336,31 @@ const styles = `
     line-height: 1.3;
     margin-top: 1.5em;
     margin-bottom: 0.5em;
+  }
+
+  .collaboration-cursor__caret {
+    border-left: 1px solid #0ea5e9;
+    border-right: 1px solid #0ea5e9;
+    margin-left: -1px;
+    margin-right: -1px;
+    pointer-events: none;
+    position: relative;
+    word-break: normal;
+  }
+
+  .collaboration-cursor__label {
+    border-radius: 3px 3px 3px 0;
+    color: #ffffff;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 600;
+    left: -1px;
+    line-height: normal;
+    padding: 2px 6px;
+    position: absolute;
+    top: -1.4em;
+    user-select: none;
+    white-space: nowrap;
   }
 
   .loading-screen {

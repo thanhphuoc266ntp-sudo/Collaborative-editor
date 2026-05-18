@@ -7,14 +7,19 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@hocuspocus/server": "^4.0.0",
     "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
+    "crossws": "^0.4.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "google-auth-library": "^10.6.2",
@@ -23,6 +28,7 @@
     "nodemailer": "^8.0.7",
     "socket.io": "^4.8.3",
     "ws": "^8.20.0",
-    "y-websocket": "^3.0.0"
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.30"
   }
 }

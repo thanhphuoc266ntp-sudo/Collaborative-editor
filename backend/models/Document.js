@@ -29,6 +29,11 @@ const documentSchema = new mongoose.Schema(
       default: "",
     },
 
+    yState: {
+      type: Buffer,
+      default: null,
+    },
+
     collaborators: [
       {
         user: {
