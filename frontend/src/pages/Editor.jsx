@@ -19,8 +19,13 @@ const Editor = () => {
     if (!localStorage.getItem("token")) {
       localStorage.setItem("redirectAfterLogin", window.location.pathname);
       navigate("/login");
+      return;
     }
-  }, [navigate]);
+
+    if (id) {
+      localStorage.setItem("lastEditorPath", `/editor/${id}`);
+    }
+  }, [navigate, id]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
