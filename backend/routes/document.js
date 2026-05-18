@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const Document = require("../models/Document");
 const User = require("../models/User");
@@ -11,6 +12,22 @@ router.post("/create", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Thiếu userId",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId không hợp lệ",
+      });
+    }
+
+    const userExists = await User.findById(userId);
+
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy người dùng để tạo tài liệu",
       });
     }
 
@@ -30,10 +47,11 @@ router.post("/create", async (req, res) => {
       document: newDoc,
     });
   } catch (error) {
-    console.error("Lỗi tạo tài liệu:", error);
+    console.error("Lỗi server khi tạo tài liệu:", error);
+
     res.status(500).json({
       success: false,
-      message: "Lỗi server khi tạo tài liệu",
+      message: error.message || "Lỗi server khi tạo tài liệu",
     });
   }
 });
@@ -53,6 +71,7 @@ router.get("/my-docs/:userId", async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi tải danh sách tài liệu:", error);
+
     res.status(500).json({
       success: false,
       message: "Lỗi server khi tải danh sách",
@@ -71,7 +90,9 @@ router.post("/share", async (req, res) => {
       });
     }
 
-    const targetUser = await User.findOne({ username: shareWithUsername });
+    const targetUser = await User.findOne({
+      username: shareWithUsername,
+    });
 
     if (!targetUser) {
       return res.status(404).json({
@@ -110,6 +131,7 @@ router.post("/share", async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi chia sẻ tài liệu:", error);
+
     res.status(500).json({
       success: false,
       message: "Lỗi server khi chia sẻ",
@@ -146,6 +168,7 @@ router.get("/:documentId", async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi tải tài liệu:", error);
+
     res.status(500).json({
       success: false,
       message: "Lỗi server khi tải tài liệu",
@@ -200,6 +223,7 @@ router.put("/:documentId", async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi lưu tài liệu:", error);
+
     res.status(500).json({
       success: false,
       message: "Lỗi server khi lưu tài liệu",
