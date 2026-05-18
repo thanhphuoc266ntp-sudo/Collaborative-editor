@@ -5,13 +5,15 @@ import EditorComponent from "../components/EditorComponent";
 
 const Editor = () => {
   const navigate = useNavigate();
-
   const { id } = useParams();
 
   const userString = localStorage.getItem("user");
   const user = userString
     ? JSON.parse(userString)
     : { displayName: "Người dùng" };
+
+  const displayName =
+    user.displayName || user.username || user.email || "Người dùng";
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
@@ -24,11 +26,16 @@ const Editor = () => {
     navigate("/login");
   };
 
+  const handleShare = () => {
+    const link = `${window.location.origin}/editor/${id}`;
+    navigator.clipboard.writeText(link);
+    alert("Đã copy link chia sẻ!");
+  };
+
   if (!localStorage.getItem("token")) return null;
 
   return (
     <div style={styles.layout}>
-      {/* SIDEBAR */}
       <aside style={styles.sidebar}>
         <div style={styles.sidebarBrand}>
           <span style={{ fontSize: "24px" }}>🌊</span> MyDocs
@@ -36,12 +43,15 @@ const Editor = () => {
 
         <div style={styles.menuSection}>
           <div style={styles.menuTitle}>KHÔNG GIAN LÀM VIỆC</div>
+
           <div style={styles.sidebarItemActive}>
             <span style={styles.icon}>📄</span> Tài liệu hiện tại
           </div>
+
           <div style={styles.sidebarItem}>
             <span style={styles.icon}>📁</span> Thư mục dự án
           </div>
+
           <div style={styles.sidebarItem}>
             <span style={styles.icon}>👥</span> Đã chia sẻ với tôi
           </div>
@@ -53,6 +63,7 @@ const Editor = () => {
           <div style={styles.navLeft}>
             <div style={styles.docInfo}>
               <h1 style={styles.docTitle}>Collaborative Editor</h1>
+
               <div style={styles.docStatus}>
                 <span style={styles.statusDot}></span>
                 <span style={styles.statusText}>Đã lưu trên đám mây</span>
@@ -61,22 +72,16 @@ const Editor = () => {
           </div>
 
           <div style={styles.navRight}>
-            <button
-              style={styles.shareBtn}
-              onClick={() => {
-                const link = `${window.location.origin}/editor/${id}`;
-                navigator.clipboard.writeText(link);
-                alert("Đã copy link chia sẻ!");
-              }}
-            >
+            <button style={styles.shareBtn} onClick={handleShare}>
               + Chia sẻ
             </button>
 
             <div style={styles.userBadge}>
               <div style={styles.avatar}>
-                {user.displayName.charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
-              <span style={styles.userName}>{user.displayName}</span>
+
+              <span style={styles.userName}>{displayName}</span>
             </div>
 
             <button onClick={handleLogout} style={styles.logoutBtn}>
@@ -159,7 +164,9 @@ const styles = {
     alignItems: "center",
     gap: "12px",
   },
-  icon: { fontSize: "18px" },
+  icon: {
+    fontSize: "18px",
+  },
   mainArea: {
     flex: 1,
     display: "flex",
@@ -173,18 +180,40 @@ const styles = {
     padding: "0 32px",
     borderBottom: "1px solid #e5e7eb",
   },
-  navLeft: { display: "flex", alignItems: "center" },
-  docInfo: { display: "flex", flexDirection: "column" },
-  docTitle: { fontSize: "18px", fontWeight: "600" },
-  docStatus: { display: "flex", gap: "6px" },
+  navLeft: {
+    display: "flex",
+    alignItems: "center",
+  },
+  docInfo: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  docTitle: {
+    fontSize: "18px",
+    fontWeight: "600",
+    margin: 0,
+  },
+  docStatus: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    marginTop: "4px",
+  },
   statusDot: {
     width: "8px",
     height: "8px",
     backgroundColor: "#10b981",
     borderRadius: "50%",
   },
-  statusText: { fontSize: "12px", color: "#6b7280" },
-  navRight: { display: "flex", alignItems: "center", gap: "16px" },
+  statusText: {
+    fontSize: "12px",
+    color: "#6b7280",
+  },
+  navRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+  },
   shareBtn: {
     backgroundColor: "#e0e7ff",
     color: "#4f46e5",
@@ -214,17 +243,29 @@ const styles = {
     justifyContent: "center",
     fontWeight: "bold",
   },
-  userName: { fontSize: "14px" },
+  userName: {
+    fontSize: "14px",
+  },
   logoutBtn: {
     color: "#ef4444",
     border: "1px solid #fca5a5",
+    backgroundColor: "#ffffff",
     padding: "6px 12px",
     borderRadius: "6px",
     cursor: "pointer",
   },
-  workspace: { flex: 1 },
-  editorContainer: { width: "100%", flex: 1 },
-  editorPaper: { padding: "40px 80px" },
+  workspace: {
+    flex: 1,
+    overflow: "auto",
+    backgroundColor: "#f3f4f6",
+  },
+  editorContainer: {
+    width: "100%",
+    minHeight: "100%",
+  },
+  editorPaper: {
+    padding: "40px 80px",
+  },
 };
 
 export default Editor;
