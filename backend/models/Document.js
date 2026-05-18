@@ -24,8 +24,8 @@ const documentSchema = new mongoose.Schema(
     },
 
     content: {
-      type: Buffer,
-      default: null,
+      type: String,
+      default: "",
     },
 
     collaborators: [
