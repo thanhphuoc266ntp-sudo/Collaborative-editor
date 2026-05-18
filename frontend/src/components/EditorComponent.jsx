@@ -23,6 +23,16 @@ const TiptapEditor = ({ ydoc, provider }) => {
     ],
   });
 
+  const runEditorCommand = (event, command) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!editor) return;
+
+    editor.chain().focus().run();
+    command();
+  };
+
   useEffect(() => {
     if (!provider) return;
 
@@ -69,10 +79,11 @@ const TiptapEditor = ({ ydoc, provider }) => {
         <div className="toolbar">
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              editor.chain().focus().toggleBold().run();
-            }}
+            onMouseDown={(e) =>
+              runEditorCommand(e, () =>
+                editor.chain().focus().toggleBold().run(),
+              )
+            }
             className={`tool-btn ${editor.isActive("bold") ? "is-active" : ""}`}
             title="In đậm"
           >
@@ -81,10 +92,11 @@ const TiptapEditor = ({ ydoc, provider }) => {
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              editor.chain().focus().toggleItalic().run();
-            }}
+            onMouseDown={(e) =>
+              runEditorCommand(e, () =>
+                editor.chain().focus().toggleItalic().run(),
+              )
+            }
             className={`tool-btn ${
               editor.isActive("italic") ? "is-active" : ""
             }`}
@@ -95,10 +107,11 @@ const TiptapEditor = ({ ydoc, provider }) => {
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              editor.chain().focus().toggleStrike().run();
-            }}
+            onMouseDown={(e) =>
+              runEditorCommand(e, () =>
+                editor.chain().focus().toggleStrike().run(),
+              )
+            }
             className={`tool-btn ${
               editor.isActive("strike") ? "is-active" : ""
             }`}
@@ -111,26 +124,30 @@ const TiptapEditor = ({ ydoc, provider }) => {
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              editor.chain().focus().toggleHeading({ level: 1 }).run();
-            }}
+            onMouseDown={(e) =>
+              runEditorCommand(e, () =>
+                editor.chain().focus().toggleHeading({ level: 1 }).run(),
+              )
+            }
             className={`tool-btn text-btn ${
               editor.isActive("heading", { level: 1 }) ? "is-active" : ""
             }`}
+            title="Tiêu đề H1"
           >
             H1
           </button>
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              editor.chain().focus().toggleHeading({ level: 2 }).run();
-            }}
+            onMouseDown={(e) =>
+              runEditorCommand(e, () =>
+                editor.chain().focus().toggleHeading({ level: 2 }).run(),
+              )
+            }
             className={`tool-btn text-btn ${
               editor.isActive("heading", { level: 2 }) ? "is-active" : ""
             }`}
+            title="Tiêu đề H2"
           >
             H2
           </button>
@@ -139,13 +156,15 @@ const TiptapEditor = ({ ydoc, provider }) => {
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              editor.chain().focus().toggleBulletList().run();
-            }}
+            onMouseDown={(e) =>
+              runEditorCommand(e, () =>
+                editor.chain().focus().toggleBulletList().run(),
+              )
+            }
             className={`tool-btn text-btn ${
               editor.isActive("bulletList") ? "is-active" : ""
             }`}
+            title="Danh sách"
           >
             • Danh sách
           </button>
