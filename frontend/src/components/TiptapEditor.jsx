@@ -17,6 +17,11 @@ const TiptapEditor = ({ ydoc, provider }) => {
         document: ydoc,
       }),
     ],
+    editorProps: {
+      attributes: {
+        class: "editor-prosemirror",
+      },
+    },
   });
 
   useEffect(() => {
@@ -45,6 +50,11 @@ const TiptapEditor = ({ ydoc, provider }) => {
     };
   }, [provider]);
 
+  const focusEditor = () => {
+    if (!editor) return;
+    editor.chain().focus().run();
+  };
+
   if (!editor) {
     return (
       <div className="loading-screen">
@@ -59,7 +69,7 @@ const TiptapEditor = ({ ydoc, provider }) => {
       <EditorToolbar editor={editor} status={status} />
 
       <div className="workspace">
-        <div className="a4-page">
+        <div className="a4-page" onMouseDown={focusEditor}>
           <EditorContent editor={editor} />
         </div>
       </div>

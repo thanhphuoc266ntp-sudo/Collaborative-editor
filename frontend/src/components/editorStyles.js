@@ -44,7 +44,7 @@ export const editorStyles = `
   }
 
   .tool-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.96);
   }
 
   .tool-btn.is-active {
@@ -86,14 +86,18 @@ export const editorStyles = `
       0 10px 15px -3px rgba(0, 0, 0, 0.05);
     border-radius: 2px;
     border: 1px solid #e5e7eb;
+    cursor: text;
   }
 
-  .a4-page .ProseMirror {
+  .a4-page .ProseMirror,
+  .editor-prosemirror {
     outline: none;
-    min-height: 100%;
+    min-height: calc(297mm - 50.8mm);
+    width: 100%;
     color: #1f2937;
     font-size: 16px;
     line-height: 1.6;
+    cursor: text;
   }
 
   .a4-page .ProseMirror p {

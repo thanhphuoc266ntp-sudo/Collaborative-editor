@@ -1,13 +1,13 @@
 import React from "react";
 
 const EditorToolbar = ({ editor, status }) => {
-  const runEditorCommand = (event, command) => {
+  const runEditorCommand = (event, callback) => {
     event.preventDefault();
     event.stopPropagation();
 
     if (!editor) return;
 
-    command();
+    callback();
   };
 
   return (
