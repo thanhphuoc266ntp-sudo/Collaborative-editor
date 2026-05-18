@@ -2,49 +2,64 @@ import React, { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { io } from "socket.io-client";
+import API from "../services/api";
 
-const API_URL = import.meta.env.VITE_API_URL;
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_URL;
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  "https://collaborative-editor-zegd.onrender.com";
 
 const EditorComponent = ({ documentId }) => {
   const socketRef = useRef(null);
   const saveTimerRef = useRef(null);
   const isRemoteChangeRef = useRef(false);
+  const latestContentRef = useRef("");
 
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState("Đang tải tài liệu...");
+
+  const saveDocument = async (content) => {
+    if (!documentId) return;
+
+    const data = content || latestContentRef.current || "";
+
+    const response = await API.put(`/documents/${documentId}`, {
+      content: data,
+    });
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Lưu tài liệu thất bại");
+    }
+
+    return response.data;
+  };
 
   const editor = useEditor({
     extensions: [StarterKit],
     content: "",
     onUpdate: ({ editor }) => {
       if (isRemoteChangeRef.current) return;
-      if (!socketRef.current || !documentId) return;
+      if (!documentId) return;
 
       const content = JSON.stringify(editor.getJSON());
+      latestContentRef.current = content;
 
       setSaveStatus("Đang lưu...");
 
-      socketRef.current.emit("send-changes", {
-        documentId,
-        content,
-      });
+      if (socketRef.current) {
+        socketRef.current.emit("send-changes", {
+          documentId,
+          content,
+        });
+      }
 
       clearTimeout(saveTimerRef.current);
 
       saveTimerRef.current = setTimeout(async () => {
         try {
-          await fetch(`${API_URL}/api/documents/${documentId}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ content }),
-          });
-
+          await saveDocument(content);
           setSaveStatus("Đã lưu trên đám mây");
         } catch (error) {
-          setSaveStatus("Lưu thất bại");
+          setSaveStatus(error.message || "Lưu thất bại");
         }
       }, 800);
     },
@@ -58,31 +73,42 @@ const EditorComponent = ({ documentId }) => {
         setLoading(true);
         setSaveStatus("Đang tải tài liệu...");
 
-        const response = await fetch(`${API_URL}/api/documents/${documentId}`);
-        const data = await response.json();
+        const response = await API.get(`/documents/${documentId}`);
+        const data = response.data;
 
         if (!data.success) {
-          setSaveStatus("Không tìm thấy tài liệu");
+          setSaveStatus(data.message || "Không tìm thấy tài liệu");
           setLoading(false);
           return;
         }
 
-        const savedContent = data.document.content;
+        const savedContent = data.document?.content || "";
+        latestContentRef.current = savedContent;
+
+        isRemoteChangeRef.current = true;
 
         if (savedContent) {
           try {
-            editor.commands.setContent(JSON.parse(savedContent));
+            editor.commands.setContent(JSON.parse(savedContent), false);
           } catch (error) {
-            editor.commands.setContent(savedContent);
+            editor.commands.setContent(savedContent, false);
           }
         } else {
-          editor.commands.setContent("");
+          editor.commands.setContent("", false);
         }
+
+        setTimeout(() => {
+          isRemoteChangeRef.current = false;
+        }, 0);
 
         setSaveStatus("Đã lưu trên đám mây");
         setLoading(false);
       } catch (error) {
-        setSaveStatus("Không thể tải tài liệu");
+        setSaveStatus(
+          error.response?.data?.message ||
+            error.message ||
+            "Không thể tải tài liệu",
+        );
         setLoading(false);
       }
     };
@@ -107,6 +133,7 @@ const EditorComponent = ({ documentId }) => {
     socket.on("receive-changes", (content) => {
       if (!editor) return;
 
+      latestContentRef.current = content || "";
       isRemoteChangeRef.current = true;
 
       try {
@@ -130,10 +157,24 @@ const EditorComponent = ({ documentId }) => {
   }, [documentId, editor]);
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (latestContentRef.current) {
+        navigator.sendBeacon(
+          `${SOCKET_URL}/api/documents/${documentId}`,
+          new Blob([JSON.stringify({ content: latestContentRef.current })], {
+            type: "application/json",
+          }),
+        );
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       clearTimeout(saveTimerRef.current);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, []);
+  }, [documentId]);
 
   if (loading || !editor) {
     return (
