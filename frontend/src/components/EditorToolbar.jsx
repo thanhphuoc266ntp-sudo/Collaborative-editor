@@ -1,13 +1,39 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const EditorToolbar = ({ editor, status }) => {
-  const runEditorCommand = (event, callback) => {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateToolbar = () => {
+      forceUpdate((value) => value + 1);
+    };
+
+    editor.on("transaction", updateToolbar);
+    editor.on("selectionUpdate", updateToolbar);
+    editor.on("update", updateToolbar);
+
+    return () => {
+      editor.off("transaction", updateToolbar);
+      editor.off("selectionUpdate", updateToolbar);
+      editor.off("update", updateToolbar);
+    };
+  }, [editor]);
+
+  const runEditorCommand = (event, command) => {
     event.preventDefault();
     event.stopPropagation();
 
     if (!editor) return;
 
-    callback();
+    const { from, to } = editor.state.selection;
+
+    command({ from, to });
+
+    requestAnimationFrame(() => {
+      forceUpdate((value) => value + 1);
+    });
   };
 
   return (
@@ -15,7 +41,14 @@ const EditorToolbar = ({ editor, status }) => {
       <button
         type="button"
         onMouseDown={(e) =>
-          runEditorCommand(e, () => editor.chain().focus().toggleBold().run())
+          runEditorCommand(e, ({ from, to }) =>
+            editor
+              .chain()
+              .focus(null, { scrollIntoView: false })
+              .setTextSelection({ from, to })
+              .toggleBold()
+              .run(),
+          )
         }
         className={`tool-btn ${editor.isActive("bold") ? "is-active" : ""}`}
         title="In đậm"
@@ -26,7 +59,14 @@ const EditorToolbar = ({ editor, status }) => {
       <button
         type="button"
         onMouseDown={(e) =>
-          runEditorCommand(e, () => editor.chain().focus().toggleItalic().run())
+          runEditorCommand(e, ({ from, to }) =>
+            editor
+              .chain()
+              .focus(null, { scrollIntoView: false })
+              .setTextSelection({ from, to })
+              .toggleItalic()
+              .run(),
+          )
         }
         className={`tool-btn ${editor.isActive("italic") ? "is-active" : ""}`}
         title="In nghiêng"
@@ -37,7 +77,14 @@ const EditorToolbar = ({ editor, status }) => {
       <button
         type="button"
         onMouseDown={(e) =>
-          runEditorCommand(e, () => editor.chain().focus().toggleStrike().run())
+          runEditorCommand(e, ({ from, to }) =>
+            editor
+              .chain()
+              .focus(null, { scrollIntoView: false })
+              .setTextSelection({ from, to })
+              .toggleStrike()
+              .run(),
+          )
         }
         className={`tool-btn ${editor.isActive("strike") ? "is-active" : ""}`}
         title="Gạch ngang"
@@ -50,8 +97,13 @@ const EditorToolbar = ({ editor, status }) => {
       <button
         type="button"
         onMouseDown={(e) =>
-          runEditorCommand(e, () =>
-            editor.chain().focus().toggleHeading({ level: 1 }).run(),
+          runEditorCommand(e, ({ from, to }) =>
+            editor
+              .chain()
+              .focus(null, { scrollIntoView: false })
+              .setTextSelection({ from, to })
+              .toggleHeading({ level: 1 })
+              .run(),
           )
         }
         className={`tool-btn text-btn ${
@@ -65,8 +117,13 @@ const EditorToolbar = ({ editor, status }) => {
       <button
         type="button"
         onMouseDown={(e) =>
-          runEditorCommand(e, () =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run(),
+          runEditorCommand(e, ({ from, to }) =>
+            editor
+              .chain()
+              .focus(null, { scrollIntoView: false })
+              .setTextSelection({ from, to })
+              .toggleHeading({ level: 2 })
+              .run(),
           )
         }
         className={`tool-btn text-btn ${
@@ -82,8 +139,13 @@ const EditorToolbar = ({ editor, status }) => {
       <button
         type="button"
         onMouseDown={(e) =>
-          runEditorCommand(e, () =>
-            editor.chain().focus().toggleBulletList().run(),
+          runEditorCommand(e, ({ from, to }) =>
+            editor
+              .chain()
+              .focus(null, { scrollIntoView: false })
+              .setTextSelection({ from, to })
+              .toggleBulletList()
+              .run(),
           )
         }
         className={`tool-btn text-btn ${

@@ -50,9 +50,14 @@ const TiptapEditor = ({ ydoc, provider }) => {
     };
   }, [provider]);
 
-  const focusEditor = () => {
+  const handlePageMouseDown = (event) => {
     if (!editor) return;
-    editor.chain().focus().run();
+
+    const clickedInsideEditor = event.target.closest?.(".ProseMirror");
+
+    if (clickedInsideEditor) return;
+
+    editor.chain().focus("end").run();
   };
 
   if (!editor) {
@@ -69,7 +74,7 @@ const TiptapEditor = ({ ydoc, provider }) => {
       <EditorToolbar editor={editor} status={status} />
 
       <div className="workspace">
-        <div className="a4-page" onMouseDown={focusEditor}>
+        <div className="a4-page" onMouseDown={handlePageMouseDown}>
           <EditorContent editor={editor} />
         </div>
       </div>
