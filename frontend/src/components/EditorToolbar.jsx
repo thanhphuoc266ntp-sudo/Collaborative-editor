@@ -28,41 +28,79 @@ const EditorToolbar = ({ editor, status }) => {
 
   if (!editor) return null;
 
-  const run = (callback) => {
+  const isMarkActive = (markName) => {
+    const markType = editor.schema.marks[markName];
+
+    if (!markType) return false;
+
+    const { state } = editor;
+    const { empty, $from } = state.selection;
+
+    if (empty) {
+      const marks = state.storedMarks || $from.marks();
+      return marks.some((mark) => mark.type === markType);
+    }
+
+    return editor.isActive(markName);
+  };
+
+  const toggleTextMark = (event, markName) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const { from, to, empty } = editor.state.selection;
+    const active = isMarkActive(markName);
+
+    let chain = editor.chain().focus(undefined, { scrollIntoView: false });
+
+    if (!empty) {
+      chain = chain.setTextSelection({ from, to });
+    }
+
+    if (active) {
+      chain.unsetMark(markName).run();
+    } else {
+      chain.setMark(markName).run();
+    }
+
+    requestAnimationFrame(() => {
+      forceUpdate((value) => value + 1);
+    });
+  };
+
+  const runBlockCommand = (event, callback) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     callback();
+
     requestAnimationFrame(() => {
       forceUpdate((value) => value + 1);
     });
   };
 
   return (
-    <div
-      className="toolbar"
-      onMouseDown={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-    >
+    <div className="toolbar">
       <ToolbarButton
         title="In đậm"
-        active={editor.isActive("bold")}
-        onRun={() => run(() => editor.chain().focus().toggleBold().run())}
+        active={isMarkActive("bold")}
+        onMouseDown={(event) => toggleTextMark(event, "bold")}
       >
         <b>B</b>
       </ToolbarButton>
 
       <ToolbarButton
         title="In nghiêng"
-        active={editor.isActive("italic")}
-        onRun={() => run(() => editor.chain().focus().toggleItalic().run())}
+        active={isMarkActive("italic")}
+        onMouseDown={(event) => toggleTextMark(event, "italic")}
       >
         <i>I</i>
       </ToolbarButton>
 
       <ToolbarButton
         title="Gạch chân"
-        active={editor.isActive("underline")}
-        onRun={() => run(() => editor.chain().focus().toggleUnderline().run())}
+        active={isMarkActive("underline")}
+        onMouseDown={(event) => toggleTextMark(event, "underline")}
       >
         <u>U</u>
       </ToolbarButton>
@@ -73,8 +111,10 @@ const EditorToolbar = ({ editor, status }) => {
         title="Tiêu đề H1"
         active={editor.isActive("heading", { level: 1 })}
         className="text-btn"
-        onRun={() =>
-          run(() => editor.chain().focus().toggleHeading({ level: 1 }).run())
+        onMouseDown={(event) =>
+          runBlockCommand(event, () =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run(),
+          )
         }
       >
         H1
@@ -84,8 +124,10 @@ const EditorToolbar = ({ editor, status }) => {
         title="Tiêu đề H2"
         active={editor.isActive("heading", { level: 2 })}
         className="text-btn"
-        onRun={() =>
-          run(() => editor.chain().focus().toggleHeading({ level: 2 }).run())
+        onMouseDown={(event) =>
+          runBlockCommand(event, () =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run(),
+          )
         }
       >
         H2
@@ -97,7 +139,11 @@ const EditorToolbar = ({ editor, status }) => {
         title="Danh sách"
         active={editor.isActive("bulletList")}
         className="text-btn"
-        onRun={() => run(() => editor.chain().focus().toggleBulletList().run())}
+        onMouseDown={(event) =>
+          runBlockCommand(event, () =>
+            editor.chain().focus().toggleBulletList().run(),
+          )
+        }
       >
         • Danh sách
       </ToolbarButton>
