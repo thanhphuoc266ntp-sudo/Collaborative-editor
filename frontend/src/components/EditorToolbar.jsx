@@ -30,11 +30,11 @@ const EditorToolbar = ({ editor, status }) => {
 
   const isMarkActive = (markName) => {
     const markType = editor.schema.marks[markName];
-
     if (!markType) return false;
 
     const { state } = editor;
-    const { empty, $from } = state.selection;
+    const { selection } = state;
+    const { empty, $from } = selection;
 
     if (empty) {
       const marks = state.storedMarks || $from.marks();
@@ -44,24 +44,37 @@ const EditorToolbar = ({ editor, status }) => {
     return editor.isActive(markName);
   };
 
-  const toggleTextMark = (event, markName) => {
+  const toggleMarkDirect = (event, markName) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const { from, to, empty } = editor.state.selection;
+    const { state, view } = editor;
+    const { schema, selection } = state;
+    const markType = schema.marks[markName];
+
+    if (!markType) return;
+
     const active = isMarkActive(markName);
+    let transaction = state.tr;
 
-    let chain = editor.chain().focus(undefined, { scrollIntoView: false });
-
-    if (!empty) {
-      chain = chain.setTextSelection({ from, to });
-    }
-
-    if (active) {
-      chain.unsetMark(markName).run();
+    if (selection.empty) {
+      if (active) {
+        transaction = transaction.removeStoredMark(markType);
+      } else {
+        transaction = transaction.addStoredMark(markType.create());
+      }
     } else {
-      chain.setMark(markName).run();
+      const { from, to } = selection;
+
+      if (active) {
+        transaction = transaction.removeMark(from, to, markType);
+      } else {
+        transaction = transaction.addMark(from, to, markType.create());
+      }
     }
+
+    view.dispatch(transaction);
+    view.focus();
 
     requestAnimationFrame(() => {
       forceUpdate((value) => value + 1);
@@ -84,7 +97,7 @@ const EditorToolbar = ({ editor, status }) => {
       <ToolbarButton
         title="In đậm"
         active={isMarkActive("bold")}
-        onMouseDown={(event) => toggleTextMark(event, "bold")}
+        onMouseDown={(event) => toggleMarkDirect(event, "bold")}
       >
         <b>B</b>
       </ToolbarButton>
@@ -92,7 +105,7 @@ const EditorToolbar = ({ editor, status }) => {
       <ToolbarButton
         title="In nghiêng"
         active={isMarkActive("italic")}
-        onMouseDown={(event) => toggleTextMark(event, "italic")}
+        onMouseDown={(event) => toggleMarkDirect(event, "italic")}
       >
         <i>I</i>
       </ToolbarButton>
@@ -100,7 +113,7 @@ const EditorToolbar = ({ editor, status }) => {
       <ToolbarButton
         title="Gạch chân"
         active={isMarkActive("underline")}
-        onMouseDown={(event) => toggleTextMark(event, "underline")}
+        onMouseDown={(event) => toggleMarkDirect(event, "underline")}
       >
         <u>U</u>
       </ToolbarButton>
