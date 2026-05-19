@@ -1,12 +1,16 @@
 /**
- * EditorComponent.jsx
+ * EditorComponent.jsx — v2 (bugfix)
  *
- * ROOT CAUSE FIX:
- * - Y.Doc và HocuspocusProvider phải được tạo MỘT LẦN duy nhất cho mỗi documentId.
- * - Dùng useEffect với cleanup để destroy đúng cách khi unmount hoặc documentId đổi.
- * - Truyền `key={documentId}` xuống TiptapEditor để force remount sạch sẽ khi
- *   document thay đổi — tránh trạng thái cũ rò vào editor mới.
- * - KHÔNG tạo Y.Doc/Provider inline trong render (sẽ tạo mới mỗi lần re-render).
+ * FIX: WebSocket closed before connection / Y.Doc destroyed too early.
+ *
+ * Thứ tự khởi tạo ĐÚNG:
+ * 1. Component mount
+ * 2. useEffect chạy → tạo Y.Doc → tạo HocuspocusProvider
+ * 3. setCollab({ ydoc, provider }) → state update → re-render
+ * 4. Render TiptapEditor với collab đã sẵn sàng
+ *
+ * Nếu collab === null (giữa step 1 và 3): render loading, KHÔNG render TiptapEditor.
+ * TiptapEditor nhận ydoc=undefined = crash "Cannot read properties of undefined (reading 'doc')".
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -17,21 +21,14 @@ import TiptapEditor from "./TiptapEditor";
 export default function EditorComponent({
   documentId = "default-doc",
   websocketUrl = "ws://localhost:1234",
-  currentUser = { name: "Anonymous", color: "#4f46e5" },
+  currentUser = { name: "Người dùng", color: "#4f46e5" },
 }) {
-  /**
-   * Dùng state để lưu collab objects.
-   * Khi documentId thay đổi → useEffect chạy → destroy cũ → tạo mới → setCollab.
-   * `collab` là null trong thời gian chờ → render null để tránh TiptapEditor nhận
-   * provider đã bị destroy.
-   */
   const [collab, setCollab] = useState(null);
-
-  // Ref để track provider/ydoc hiện tại cho cleanup
+  // Ref để access collab hiện tại trong cleanup mà không cần thêm vào deps
   const collabRef = useRef(null);
 
   useEffect(() => {
-    // Destroy provider/ydoc cũ nếu có (khi documentId thay đổi)
+    // Destroy instance cũ nếu documentId thay đổi
     if (collabRef.current) {
       collabRef.current.provider.destroy();
       collabRef.current.ydoc.destroy();
@@ -45,40 +42,52 @@ export default function EditorComponent({
       url: websocketUrl,
       name: documentId,
       document: ydoc,
-      // Không reconnect vô hạn khi server chưa sẵn sàng
-      maxAttempts: 10,
-      onConnect: () => {
-        console.log(`[Hocuspocus] Connected to "${documentId}"`);
-      },
-      onClose: ({ event }) => {
-        console.log("[Hocuspocus] Disconnected", event?.code, event?.reason);
-      },
+      /**
+       * WebSocket error "connection failed" thường do server chưa chạy.
+       * Dùng maxAttempts để không retry vô hạn trong dev.
+       * Tăng lên khi deploy production.
+       */
+      maxAttempts: 5,
+      quiet: false, // set true để tắt console warnings khi dev offline
     });
 
     const newCollab = { ydoc, provider };
     collabRef.current = newCollab;
+
+    // Chỉ set state sau khi tạo xong cả hai
     setCollab(newCollab);
 
     return () => {
-      // Cleanup khi component unmount hoặc deps thay đổi
       provider.destroy();
       ydoc.destroy();
       collabRef.current = null;
+      // Không setCollab(null) ở đây — component đang unmount, không cần re-render
     };
-  }, [documentId, websocketUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [documentId, websocketUrl]);
 
   if (!collab) {
     return (
-      <div className="editor-loading">
-        <span>Đang kết nối...</span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "200px",
+          fontFamily: "-apple-system, sans-serif",
+          fontSize: "14px",
+          color: "#9ca3af",
+          gap: "8px",
+        }}
+      >
+        Đang kết nối...
       </div>
     );
   }
 
   return (
     /**
-     * key={documentId} đảm bảo TiptapEditor unmount/remount hoàn toàn
-     * khi chuyển sang document khác, tránh useEditor giữ state cũ.
+     * key={documentId}: force unmount/remount TiptapEditor khi đổi document.
+     * Đảm bảo useEditor không giữ state cũ từ Y.Doc của document trước.
      */
     <TiptapEditor
       key={documentId}
