@@ -1,80 +1,59 @@
-import React, { useEffect, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import React from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
 import Collaboration from "@tiptap/extension-collaboration";
 import EditorToolbar from "./EditorToolbar";
+import "./editorStyles.js";
 
-const TiptapEditor = ({ ydoc, provider }) => {
-  const [status, setStatus] = useState("Đang kết nối CRDT...");
-
+const TiptapEditor = ({ ydoc, provider, status }) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         history: false,
-        undoRedo: false,
       }),
+
+      Underline,
+
       Collaboration.configure({
         document: ydoc,
       }),
     ],
+
     editorProps: {
       attributes: {
-        class: "editor-prosemirror",
+        class: "tiptap-editor-content",
+      },
+
+      handleDOMEvents: {
+        mousedown: () => {
+          return false;
+        },
       },
     },
+
+    autofocus: false,
   });
 
-  useEffect(() => {
-    if (!provider) return;
-
-    const handleStatus = ({ status }) => {
-      if (status === "connected") {
-        setStatus("Đã kết nối CRDT realtime");
-      } else if (status === "connecting") {
-        setStatus("Đang kết nối...");
-      } else {
-        setStatus("Mất kết nối realtime");
-      }
-    };
-
-    const handleSynced = () => {
-      setStatus("Đã đồng bộ tài liệu");
-    };
-
-    provider.on("status", handleStatus);
-    provider.on("synced", handleSynced);
-
-    return () => {
-      provider.off("status", handleStatus);
-      provider.off("synced", handleSynced);
-    };
-  }, [provider]);
-
-  const handlePageMouseDown = (event) => {
+  const focusEditor = (event) => {
     if (!editor) return;
 
-    const clickedInsideEditor = event.target.closest?.(".ProseMirror");
+    const isEditorArea = event.target.closest(".ProseMirror");
+    const isToolbar = event.target.closest(".toolbar");
 
-    if (clickedInsideEditor) return;
+    if (isToolbar) return;
 
-    editor.chain().focus("end").run();
+    if (!isEditorArea) {
+      editor.commands.focus("end");
+    }
   };
 
-  if (!editor) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Đang chuẩn bị editor CRDT...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="editor-wrapper">
+    <div className="editor-shell">
       <EditorToolbar editor={editor} status={status} />
 
-      <div className="workspace">
-        <div className="a4-page" onMouseDown={handlePageMouseDown}>
+      <div className="editor-scroll">
+        <div className="a4-page" onMouseDown={focusEditor}>
           <EditorContent editor={editor} />
         </div>
       </div>

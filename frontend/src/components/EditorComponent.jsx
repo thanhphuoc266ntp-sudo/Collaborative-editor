@@ -1,53 +1,58 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import TiptapEditor from "./TiptapEditor";
-import { editorStyles } from "./editorStyles";
-
-const COLLAB_URL =
-  import.meta.env.VITE_COLLAB_URL ||
-  "wss://collaborative-editor-zegd.onrender.com/collaboration";
 
 const EditorComponent = ({ documentId }) => {
-  const [network, setNetwork] = useState(null);
+  const [status, setStatus] = useState("Đang kết nối...");
 
-  useEffect(() => {
-    if (!documentId) return;
+  const ydoc = useMemo(() => {
+    return new Y.Doc();
+  }, [documentId]);
 
-    const ydoc = new Y.Doc();
+  const provider = useMemo(() => {
+    if (!documentId) return null;
 
-    const provider = new HocuspocusProvider({
-      url: COLLAB_URL,
+    return new HocuspocusProvider({
+      url: import.meta.env.VITE_COLLAB_URL,
       name: documentId,
       document: ydoc,
-      connect: true,
     });
+  }, [documentId, ydoc]);
 
-    setNetwork({
-      ydoc,
-      provider,
-    });
+  useEffect(() => {
+    if (!provider) return;
+
+    const handleConnect = () => {
+      setStatus("Đã kết nối");
+    };
+
+    const handleSynced = () => {
+      setStatus("Đã đồng bộ tài liệu");
+    };
+
+    const handleDisconnect = () => {
+      setStatus("Mất kết nối");
+    };
+
+    provider.on("connect", handleConnect);
+    provider.on("synced", handleSynced);
+    provider.on("disconnect", handleDisconnect);
 
     return () => {
+      provider.off("connect", handleConnect);
+      provider.off("synced", handleSynced);
+      provider.off("disconnect", handleDisconnect);
       provider.destroy();
       ydoc.destroy();
     };
-  }, [documentId]);
+  }, [provider, ydoc]);
 
-  return (
-    <>
-      <style>{editorStyles}</style>
+  if (!documentId) {
+    return <div className="editor-loading">Không tìm thấy tài liệu</div>;
+  }
 
-      {!network ? (
-        <div className="loading-screen">
-          <div className="spinner"></div>
-          <p>Đang kết nối Hocuspocus...</p>
-        </div>
-      ) : (
-        <TiptapEditor ydoc={network.ydoc} provider={network.provider} />
-      )}
-    </>
-  );
+  return <TiptapEditor ydoc={ydoc} provider={provider} status={status} />;
 };
 
 export default EditorComponent;

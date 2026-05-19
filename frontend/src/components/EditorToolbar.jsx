@@ -21,33 +21,35 @@ const EditorToolbar = ({ editor, status }) => {
     };
   }, [editor]);
 
-  const runEditorCommand = (event, command) => {
+  if (!editor) return null;
+
+  const runEditorCommand = (event, callback) => {
     event.preventDefault();
     event.stopPropagation();
 
-    if (!editor) return;
-
     const { from, to } = editor.state.selection;
 
-    command({ from, to });
+    callback(from, to);
 
     requestAnimationFrame(() => {
       forceUpdate((value) => value + 1);
     });
   };
 
+  const runChain = (from, to) => {
+    return editor
+      .chain()
+      .setTextSelection({ from, to })
+      .focus(undefined, { scrollIntoView: false });
+  };
+
   return (
     <div className="toolbar">
       <button
         type="button"
-        onMouseDown={(e) =>
-          runEditorCommand(e, ({ from, to }) =>
-            editor
-              .chain()
-              .focus(null, { scrollIntoView: false })
-              .setTextSelection({ from, to })
-              .toggleBold()
-              .run(),
+        onMouseDown={(event) =>
+          runEditorCommand(event, (from, to) =>
+            runChain(from, to).toggleBold().run(),
           )
         }
         className={`tool-btn ${editor.isActive("bold") ? "is-active" : ""}`}
@@ -58,14 +60,9 @@ const EditorToolbar = ({ editor, status }) => {
 
       <button
         type="button"
-        onMouseDown={(e) =>
-          runEditorCommand(e, ({ from, to }) =>
-            editor
-              .chain()
-              .focus(null, { scrollIntoView: false })
-              .setTextSelection({ from, to })
-              .toggleItalic()
-              .run(),
+        onMouseDown={(event) =>
+          runEditorCommand(event, (from, to) =>
+            runChain(from, to).toggleItalic().run(),
           )
         }
         className={`tool-btn ${editor.isActive("italic") ? "is-active" : ""}`}
@@ -76,34 +73,26 @@ const EditorToolbar = ({ editor, status }) => {
 
       <button
         type="button"
-        onMouseDown={(e) =>
-          runEditorCommand(e, ({ from, to }) =>
-            editor
-              .chain()
-              .focus(null, { scrollIntoView: false })
-              .setTextSelection({ from, to })
-              .toggleStrike()
-              .run(),
+        onMouseDown={(event) =>
+          runEditorCommand(event, (from, to) =>
+            runChain(from, to).toggleUnderline().run(),
           )
         }
-        className={`tool-btn ${editor.isActive("strike") ? "is-active" : ""}`}
-        title="Gạch ngang"
+        className={`tool-btn ${
+          editor.isActive("underline") ? "is-active" : ""
+        }`}
+        title="Gạch chân"
       >
-        <s>S</s>
+        <u>U</u>
       </button>
 
       <div className="divider"></div>
 
       <button
         type="button"
-        onMouseDown={(e) =>
-          runEditorCommand(e, ({ from, to }) =>
-            editor
-              .chain()
-              .focus(null, { scrollIntoView: false })
-              .setTextSelection({ from, to })
-              .toggleHeading({ level: 1 })
-              .run(),
+        onMouseDown={(event) =>
+          runEditorCommand(event, (from, to) =>
+            runChain(from, to).toggleHeading({ level: 1 }).run(),
           )
         }
         className={`tool-btn text-btn ${
@@ -116,14 +105,9 @@ const EditorToolbar = ({ editor, status }) => {
 
       <button
         type="button"
-        onMouseDown={(e) =>
-          runEditorCommand(e, ({ from, to }) =>
-            editor
-              .chain()
-              .focus(null, { scrollIntoView: false })
-              .setTextSelection({ from, to })
-              .toggleHeading({ level: 2 })
-              .run(),
+        onMouseDown={(event) =>
+          runEditorCommand(event, (from, to) =>
+            runChain(from, to).toggleHeading({ level: 2 }).run(),
           )
         }
         className={`tool-btn text-btn ${
@@ -138,14 +122,9 @@ const EditorToolbar = ({ editor, status }) => {
 
       <button
         type="button"
-        onMouseDown={(e) =>
-          runEditorCommand(e, ({ from, to }) =>
-            editor
-              .chain()
-              .focus(null, { scrollIntoView: false })
-              .setTextSelection({ from, to })
-              .toggleBulletList()
-              .run(),
+        onMouseDown={(event) =>
+          runEditorCommand(event, (from, to) =>
+            runChain(from, to).toggleBulletList().run(),
           )
         }
         className={`tool-btn text-btn ${
