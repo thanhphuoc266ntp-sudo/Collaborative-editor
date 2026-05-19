@@ -18,7 +18,8 @@ const editorStyles = `
   gap: 8px;
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;
+  user-select: none;
 }
 
 .tool-btn {
@@ -32,6 +33,9 @@ const editorStyles = `
   font-weight: 600;
   cursor: pointer;
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tool-btn:hover {

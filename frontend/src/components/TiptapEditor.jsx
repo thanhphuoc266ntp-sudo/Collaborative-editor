@@ -4,7 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Collaboration from "@tiptap/extension-collaboration";
 import EditorToolbar from "./EditorToolbar";
-import "./editorStyles.js";
+import "./editorStyles";
 
 const TiptapEditor = ({ ydoc, provider, status }) => {
   const editor = useEditor({
@@ -24,12 +24,6 @@ const TiptapEditor = ({ ydoc, provider, status }) => {
       attributes: {
         class: "tiptap-editor-content",
       },
-
-      handleDOMEvents: {
-        mousedown: () => {
-          return false;
-        },
-      },
     },
 
     autofocus: false,
@@ -38,13 +32,13 @@ const TiptapEditor = ({ ydoc, provider, status }) => {
   const focusEditor = (event) => {
     if (!editor) return;
 
-    const isEditorArea = event.target.closest(".ProseMirror");
-    const isToolbar = event.target.closest(".toolbar");
+    const clickedToolbar = event.target.closest(".toolbar");
+    const clickedEditor = event.target.closest(".ProseMirror");
 
-    if (isToolbar) return;
+    if (clickedToolbar) return;
 
-    if (!isEditorArea) {
-      editor.commands.focus("end");
+    if (!clickedEditor && event.target.classList.contains("a4-page")) {
+      editor.chain().focus("end").run();
     }
   };
 

@@ -1,129 +1,106 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
+import ToolbarButton from "./ToolbarButton";
 
 const EditorToolbar = ({ editor, status }) => {
   const [, forceUpdate] = useState(0);
-  const lastSelectionRef = useRef(null);
 
   useEffect(() => {
     if (!editor) return;
 
     const updateToolbar = () => {
-      const { from, to } = editor.state.selection;
-      lastSelectionRef.current = { from, to };
       forceUpdate((value) => value + 1);
     };
 
-    editor.on("selectionUpdate", updateToolbar);
     editor.on("transaction", updateToolbar);
+    editor.on("selectionUpdate", updateToolbar);
     editor.on("update", updateToolbar);
-
-    updateToolbar();
+    editor.on("focus", updateToolbar);
+    editor.on("blur", updateToolbar);
 
     return () => {
-      editor.off("selectionUpdate", updateToolbar);
       editor.off("transaction", updateToolbar);
+      editor.off("selectionUpdate", updateToolbar);
       editor.off("update", updateToolbar);
+      editor.off("focus", updateToolbar);
+      editor.off("blur", updateToolbar);
     };
   }, [editor]);
 
   if (!editor) return null;
 
-  const runCommand = (event, commandName, commandOptions = null) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const selection = lastSelectionRef.current;
-    const from = selection?.from ?? editor.state.selection.from;
-    const to = selection?.to ?? editor.state.selection.to;
-
-    const chain = editor
-      .chain()
-      .setTextSelection({ from, to })
-      .focus(undefined, { scrollIntoView: false });
-
-    if (commandOptions) {
-      chain[commandName](commandOptions).run();
-    } else {
-      chain[commandName]().run();
-    }
-
+  const run = (callback) => {
+    callback();
     requestAnimationFrame(() => {
       forceUpdate((value) => value + 1);
     });
   };
 
-  const buttons = [
-    {
-      key: "bold",
-      title: "In đậm",
-      label: <b>B</b>,
-      active: editor.isActive("bold"),
-      commandName: "toggleBold",
-    },
-    {
-      key: "italic",
-      title: "In nghiêng",
-      label: <i>I</i>,
-      active: editor.isActive("italic"),
-      commandName: "toggleItalic",
-    },
-    {
-      key: "underline",
-      title: "Gạch chân",
-      label: <u>U</u>,
-      active: editor.isActive("underline"),
-      commandName: "toggleUnderline",
-    },
-    {
-      key: "h1",
-      title: "Tiêu đề H1",
-      label: "H1",
-      active: editor.isActive("heading", { level: 1 }),
-      commandName: "toggleHeading",
-      commandOptions: { level: 1 },
-      extraClass: "text-btn",
-      beforeDivider: true,
-    },
-    {
-      key: "h2",
-      title: "Tiêu đề H2",
-      label: "H2",
-      active: editor.isActive("heading", { level: 2 }),
-      commandName: "toggleHeading",
-      commandOptions: { level: 2 },
-      extraClass: "text-btn",
-    },
-    {
-      key: "bulletList",
-      title: "Danh sách",
-      label: "• Danh sách",
-      active: editor.isActive("bulletList"),
-      commandName: "toggleBulletList",
-      extraClass: "text-btn",
-      beforeDivider: true,
-    },
-  ];
-
   return (
-    <div className="toolbar">
-      {buttons.map((button) => (
-        <React.Fragment key={button.key}>
-          {button.beforeDivider && <div className="divider"></div>}
+    <div
+      className="toolbar"
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
+      <ToolbarButton
+        title="In đậm"
+        active={editor.isActive("bold")}
+        onRun={() => run(() => editor.chain().focus().toggleBold().run())}
+      >
+        <b>B</b>
+      </ToolbarButton>
 
-          <button
-            type="button"
-            onMouseDown={(event) =>
-              runCommand(event, button.commandName, button.commandOptions)
-            }
-            className={`tool-btn ${button.extraClass || ""} ${
-              button.active ? "is-active" : ""
-            }`}
-            title={button.title}
-          >
-            {button.label}
-          </button>
-        </React.Fragment>
-      ))}
+      <ToolbarButton
+        title="In nghiêng"
+        active={editor.isActive("italic")}
+        onRun={() => run(() => editor.chain().focus().toggleItalic().run())}
+      >
+        <i>I</i>
+      </ToolbarButton>
+
+      <ToolbarButton
+        title="Gạch chân"
+        active={editor.isActive("underline")}
+        onRun={() => run(() => editor.chain().focus().toggleUnderline().run())}
+      >
+        <u>U</u>
+      </ToolbarButton>
+
+      <div className="divider"></div>
+
+      <ToolbarButton
+        title="Tiêu đề H1"
+        active={editor.isActive("heading", { level: 1 })}
+        className="text-btn"
+        onRun={() =>
+          run(() => editor.chain().focus().toggleHeading({ level: 1 }).run())
+        }
+      >
+        H1
+      </ToolbarButton>
+
+      <ToolbarButton
+        title="Tiêu đề H2"
+        active={editor.isActive("heading", { level: 2 })}
+        className="text-btn"
+        onRun={() =>
+          run(() => editor.chain().focus().toggleHeading({ level: 2 }).run())
+        }
+      >
+        H2
+      </ToolbarButton>
+
+      <div className="divider"></div>
+
+      <ToolbarButton
+        title="Danh sách"
+        active={editor.isActive("bulletList")}
+        className="text-btn"
+        onRun={() => run(() => editor.chain().focus().toggleBulletList().run())}
+      >
+        • Danh sách
+      </ToolbarButton>
 
       <div className="save-status">{status}</div>
     </div>
