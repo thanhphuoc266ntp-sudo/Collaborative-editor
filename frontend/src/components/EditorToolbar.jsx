@@ -1,139 +1,129 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const EditorToolbar = ({ editor, status }) => {
   const [, forceUpdate] = useState(0);
+  const lastSelectionRef = useRef(null);
 
   useEffect(() => {
     if (!editor) return;
 
     const updateToolbar = () => {
+      const { from, to } = editor.state.selection;
+      lastSelectionRef.current = { from, to };
       forceUpdate((value) => value + 1);
     };
 
-    editor.on("transaction", updateToolbar);
     editor.on("selectionUpdate", updateToolbar);
+    editor.on("transaction", updateToolbar);
     editor.on("update", updateToolbar);
 
+    updateToolbar();
+
     return () => {
-      editor.off("transaction", updateToolbar);
       editor.off("selectionUpdate", updateToolbar);
+      editor.off("transaction", updateToolbar);
       editor.off("update", updateToolbar);
     };
   }, [editor]);
 
   if (!editor) return null;
 
-  const runEditorCommand = (event, callback) => {
+  const runCommand = (event, commandName, commandOptions = null) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const { from, to } = editor.state.selection;
+    const selection = lastSelectionRef.current;
+    const from = selection?.from ?? editor.state.selection.from;
+    const to = selection?.to ?? editor.state.selection.to;
 
-    callback(from, to);
+    const chain = editor
+      .chain()
+      .setTextSelection({ from, to })
+      .focus(undefined, { scrollIntoView: false });
+
+    if (commandOptions) {
+      chain[commandName](commandOptions).run();
+    } else {
+      chain[commandName]().run();
+    }
 
     requestAnimationFrame(() => {
       forceUpdate((value) => value + 1);
     });
   };
 
-  const runChain = (from, to) => {
-    return editor
-      .chain()
-      .setTextSelection({ from, to })
-      .focus(undefined, { scrollIntoView: false });
-  };
+  const buttons = [
+    {
+      key: "bold",
+      title: "In đậm",
+      label: <b>B</b>,
+      active: editor.isActive("bold"),
+      commandName: "toggleBold",
+    },
+    {
+      key: "italic",
+      title: "In nghiêng",
+      label: <i>I</i>,
+      active: editor.isActive("italic"),
+      commandName: "toggleItalic",
+    },
+    {
+      key: "underline",
+      title: "Gạch chân",
+      label: <u>U</u>,
+      active: editor.isActive("underline"),
+      commandName: "toggleUnderline",
+    },
+    {
+      key: "h1",
+      title: "Tiêu đề H1",
+      label: "H1",
+      active: editor.isActive("heading", { level: 1 }),
+      commandName: "toggleHeading",
+      commandOptions: { level: 1 },
+      extraClass: "text-btn",
+      beforeDivider: true,
+    },
+    {
+      key: "h2",
+      title: "Tiêu đề H2",
+      label: "H2",
+      active: editor.isActive("heading", { level: 2 }),
+      commandName: "toggleHeading",
+      commandOptions: { level: 2 },
+      extraClass: "text-btn",
+    },
+    {
+      key: "bulletList",
+      title: "Danh sách",
+      label: "• Danh sách",
+      active: editor.isActive("bulletList"),
+      commandName: "toggleBulletList",
+      extraClass: "text-btn",
+      beforeDivider: true,
+    },
+  ];
 
   return (
     <div className="toolbar">
-      <button
-        type="button"
-        onMouseDown={(event) =>
-          runEditorCommand(event, (from, to) =>
-            runChain(from, to).toggleBold().run(),
-          )
-        }
-        className={`tool-btn ${editor.isActive("bold") ? "is-active" : ""}`}
-        title="In đậm"
-      >
-        <b>B</b>
-      </button>
+      {buttons.map((button) => (
+        <React.Fragment key={button.key}>
+          {button.beforeDivider && <div className="divider"></div>}
 
-      <button
-        type="button"
-        onMouseDown={(event) =>
-          runEditorCommand(event, (from, to) =>
-            runChain(from, to).toggleItalic().run(),
-          )
-        }
-        className={`tool-btn ${editor.isActive("italic") ? "is-active" : ""}`}
-        title="In nghiêng"
-      >
-        <i>I</i>
-      </button>
-
-      <button
-        type="button"
-        onMouseDown={(event) =>
-          runEditorCommand(event, (from, to) =>
-            runChain(from, to).toggleUnderline().run(),
-          )
-        }
-        className={`tool-btn ${
-          editor.isActive("underline") ? "is-active" : ""
-        }`}
-        title="Gạch chân"
-      >
-        <u>U</u>
-      </button>
-
-      <div className="divider"></div>
-
-      <button
-        type="button"
-        onMouseDown={(event) =>
-          runEditorCommand(event, (from, to) =>
-            runChain(from, to).toggleHeading({ level: 1 }).run(),
-          )
-        }
-        className={`tool-btn text-btn ${
-          editor.isActive("heading", { level: 1 }) ? "is-active" : ""
-        }`}
-        title="Tiêu đề H1"
-      >
-        H1
-      </button>
-
-      <button
-        type="button"
-        onMouseDown={(event) =>
-          runEditorCommand(event, (from, to) =>
-            runChain(from, to).toggleHeading({ level: 2 }).run(),
-          )
-        }
-        className={`tool-btn text-btn ${
-          editor.isActive("heading", { level: 2 }) ? "is-active" : ""
-        }`}
-        title="Tiêu đề H2"
-      >
-        H2
-      </button>
-
-      <div className="divider"></div>
-
-      <button
-        type="button"
-        onMouseDown={(event) =>
-          runEditorCommand(event, (from, to) =>
-            runChain(from, to).toggleBulletList().run(),
-          )
-        }
-        className={`tool-btn text-btn ${
-          editor.isActive("bulletList") ? "is-active" : ""
-        }`}
-        title="Danh sách"
-      >
-        • Danh sách
-      </button>
+          <button
+            type="button"
+            onMouseDown={(event) =>
+              runCommand(event, button.commandName, button.commandOptions)
+            }
+            className={`tool-btn ${button.extraClass || ""} ${
+              button.active ? "is-active" : ""
+            }`}
+            title={button.title}
+          >
+            {button.label}
+          </button>
+        </React.Fragment>
+      ))}
 
       <div className="save-status">{status}</div>
     </div>
