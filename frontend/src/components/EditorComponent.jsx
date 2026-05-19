@@ -1,99 +1,64 @@
-/**
- * EditorComponent.jsx — v2 (bugfix)
- *
- * FIX: WebSocket closed before connection / Y.Doc destroyed too early.
- *
- * Thứ tự khởi tạo ĐÚNG:
- * 1. Component mount
- * 2. useEffect chạy → tạo Y.Doc → tạo HocuspocusProvider
- * 3. setCollab({ ydoc, provider }) → state update → re-render
- * 4. Render TiptapEditor với collab đã sẵn sàng
- *
- * Nếu collab === null (giữa step 1 và 3): render loading, KHÔNG render TiptapEditor.
- * TiptapEditor nhận ydoc=undefined = crash "Cannot read properties of undefined (reading 'doc')".
- */
-
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import TiptapEditor from "./TiptapEditor";
 
-export default function EditorComponent({
-  documentId = "default-doc",
-  websocketUrl = "ws://localhost:1234",
-  currentUser = { name: "Người dùng", color: "#4f46e5" },
-}) {
-  const [collab, setCollab] = useState(null);
-  // Ref để access collab hiện tại trong cleanup mà không cần thêm vào deps
-  const collabRef = useRef(null);
+const EditorComponent = ({ documentId }) => {
+  const [status, setStatus] = useState("Đang kết nối...");
 
-  useEffect(() => {
-    // Destroy instance cũ nếu documentId thay đổi
-    if (collabRef.current) {
-      collabRef.current.provider.destroy();
-      collabRef.current.ydoc.destroy();
-      collabRef.current = null;
-      setCollab(null);
-    }
+  const ydoc = useMemo(() => {
+    return new Y.Doc();
+  }, [documentId]);
 
-    const ydoc = new Y.Doc();
+  const provider = useMemo(() => {
+    if (!documentId || !ydoc) return null;
 
-    const provider = new HocuspocusProvider({
-      url: websocketUrl,
+    return new HocuspocusProvider({
+      url: import.meta.env.VITE_COLLAB_URL,
       name: documentId,
       document: ydoc,
-      /**
-       * WebSocket error "connection failed" thường do server chưa chạy.
-       * Dùng maxAttempts để không retry vô hạn trong dev.
-       * Tăng lên khi deploy production.
-       */
-      maxAttempts: 5,
-      quiet: false, // set true để tắt console warnings khi dev offline
     });
+  }, [documentId, ydoc]);
 
-    const newCollab = { ydoc, provider };
-    collabRef.current = newCollab;
+  useEffect(() => {
+    if (!provider || !ydoc) return;
 
-    // Chỉ set state sau khi tạo xong cả hai
-    setCollab(newCollab);
+    const handleConnect = () => {
+      setStatus("Đã kết nối");
+    };
+
+    const handleSynced = () => {
+      setStatus("Đã đồng bộ tài liệu");
+    };
+
+    const handleDisconnect = () => {
+      setStatus("Mất kết nối");
+    };
+
+    const handleOpen = () => {
+      setStatus("Đang mở kết nối...");
+    };
+
+    provider.on("open", handleOpen);
+    provider.on("connect", handleConnect);
+    provider.on("synced", handleSynced);
+    provider.on("disconnect", handleDisconnect);
 
     return () => {
+      provider.off("open", handleOpen);
+      provider.off("connect", handleConnect);
+      provider.off("synced", handleSynced);
+      provider.off("disconnect", handleDisconnect);
       provider.destroy();
       ydoc.destroy();
-      collabRef.current = null;
-      // Không setCollab(null) ở đây — component đang unmount, không cần re-render
     };
-  }, [documentId, websocketUrl]);
+  }, [provider, ydoc]);
 
-  if (!collab) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "200px",
-          fontFamily: "-apple-system, sans-serif",
-          fontSize: "14px",
-          color: "#9ca3af",
-          gap: "8px",
-        }}
-      >
-        Đang kết nối...
-      </div>
-    );
+  if (!documentId) {
+    return <div className="editor-loading">Không tìm thấy tài liệu</div>;
   }
 
-  return (
-    /**
-     * key={documentId}: force unmount/remount TiptapEditor khi đổi document.
-     * Đảm bảo useEditor không giữ state cũ từ Y.Doc của document trước.
-     */
-    <TiptapEditor
-      key={documentId}
-      ydoc={collab.ydoc}
-      provider={collab.provider}
-      currentUser={currentUser}
-    />
-  );
-}
+  return <TiptapEditor ydoc={ydoc} status={status} />;
+};
+
+export default EditorComponent;
