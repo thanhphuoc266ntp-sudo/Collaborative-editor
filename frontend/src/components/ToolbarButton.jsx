@@ -1,20 +1,22 @@
 import React from "react";
 
-const ToolbarButton = ({
-  title,
-  active,
-  onMouseDown,
-  children,
-  className = "",
-}) => {
+const ToolbarButton = ({ isActive, onClick, label, style }) => {
   return (
     <button
-      type="button"
-      title={title}
-      className={`tool-btn ${className} ${active ? "is-active" : ""}`}
-      onMouseDown={onMouseDown}
+      type="button" // Tránh submit form nếu nằm trong form
+      className={`toolbar-btn ${isActive ? "is-active" : ""}`}
+      style={style}
+      // QUAN TRỌNG NHẤT LÀ ĐÂY:
+      // preventDefault ở sự kiện mousedown sẽ ngăn trình duyệt chuyển focus
+      // từ thẻ contenteditable (editor) sang nút button.
+      // Điều này giữ nguyên `storedMarks` (định dạng chờ gõ) của ProseMirror.
+      onMouseDown={(e) => {
+        e.preventDefault();
+      }}
+      onClick={onClick}
+      title={label}
     >
-      {children}
+      {label}
     </button>
   );
 };

@@ -1,54 +1,47 @@
 import React from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import Underline from "@tiptap/extension-underline";
 import EditorToolbar from "./EditorToolbar";
-import "./editorStyles";
 
-const TiptapEditor = ({ ydoc, provider, status }) => {
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        history: false,
-      }),
-
-      Underline,
-
-      Collaboration.configure({
-        document: ydoc,
-      }),
-    ],
-
-    editorProps: {
-      attributes: {
-        class: "tiptap-editor-content",
-      },
+const TiptapEditor = ({ provider }) => {
+  const editor = useEditor(
+    {
+      // QUAN TRỌNG: TUYỆT ĐỐI KHÔNG TRUYỀN `content` KHI DÙNG COLLABORATION
+      extensions: [
+        StarterKit.configure({
+          // Tắt history mặc định vì Yjs sẽ tự quản lý history (undo/redo)
+          history: false,
+        }),
+        Underline, // Nút U cần extension này
+        Collaboration.configure({
+          document: provider.document,
+        }),
+        // (Tùy chọn) Hiển thị con trỏ của người khác
+        CollaborationCursor.configure({
+          provider: provider,
+          user: {
+            name: "User " + Math.floor(Math.random() * 100),
+            color: "#f783ac",
+          },
+        }),
+      ],
     },
-
-    autofocus: false,
-  });
-
-  const focusEditor = (event) => {
-    if (!editor) return;
-
-    const clickedToolbar = event.target.closest(".toolbar");
-    const clickedEditor = event.target.closest(".ProseMirror");
-
-    if (clickedToolbar) return;
-
-    if (!clickedEditor && event.target.classList.contains("a4-page")) {
-      editor.chain().focus("end").run();
-    }
-  };
+    [provider.document],
+  );
+  // Dependency array chứa provider.document đảm bảo editor không bị remount
+  // trừ khi document thực sự thay đổi.
 
   return (
-    <div className="editor-shell">
-      <EditorToolbar editor={editor} status={status} />
+    <div className="tiptap-container">
+      <EditorToolbar editor={editor} />
 
-      <div className="editor-scroll">
-        <div className="a4-page" onMouseDown={focusEditor}>
-          <EditorContent editor={editor} />
+      {/* Wrapper a4-page. Đã CSS để không cản trở việc click và focus */}
+      <div className="a4-page-wrapper">
+        <div className="a4-page">
+          <EditorContent editor={editor} className="editor-content" />
         </div>
       </div>
     </div>

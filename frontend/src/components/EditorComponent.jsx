@@ -1,58 +1,39 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import TiptapEditor from "./TiptapEditor";
+import "./editorStyles.css"; // Dùng file CSS chuẩn cho dễ tuỳ biến
 
-const EditorComponent = ({ documentId }) => {
-  const [status, setStatus] = useState("Đang kết nối...");
-
-  const ydoc = useMemo(() => {
-    return new Y.Doc();
-  }, [documentId]);
-
-  const provider = useMemo(() => {
-    if (!documentId) return null;
-
-    return new HocuspocusProvider({
-      url: import.meta.env.VITE_COLLAB_URL,
-      name: documentId,
-      document: ydoc,
-    });
-  }, [documentId, ydoc]);
+const EditorComponent = ({ documentName = "my-room" }) => {
+  const [provider, setProvider] = useState(null);
 
   useEffect(() => {
-    if (!provider) return;
+    // 1. Khởi tạo Y.Doc và Provider MỘT LẦN DUY NHẤT
+    const ydoc = new Y.Doc();
+    const newProvider = new HocuspocusProvider({
+      url: "ws://127.0.0.1:1234", // Thay bằng URL Hocuspocus server của bạn
+      name: documentName,
+      document: ydoc,
+    });
 
-    const handleConnect = () => {
-      setStatus("Đã kết nối");
-    };
+    setProvider(newProvider);
 
-    const handleSynced = () => {
-      setStatus("Đã đồng bộ tài liệu");
-    };
-
-    const handleDisconnect = () => {
-      setStatus("Mất kết nối");
-    };
-
-    provider.on("connect", handleConnect);
-    provider.on("synced", handleSynced);
-    provider.on("disconnect", handleDisconnect);
-
+    // 2. Cleanup đúng cách khi unmount
     return () => {
-      provider.off("connect", handleConnect);
-      provider.off("synced", handleSynced);
-      provider.off("disconnect", handleDisconnect);
-      provider.destroy();
+      newProvider.destroy();
       ydoc.destroy();
     };
-  }, [provider, ydoc]);
+  }, [documentName]);
 
-  if (!documentId) {
-    return <div className="editor-loading">Không tìm thấy tài liệu</div>;
+  if (!provider) {
+    return <div className="loading-editor">Đang kết nối...</div>;
   }
 
-  return <TiptapEditor ydoc={ydoc} provider={provider} status={status} />;
+  return (
+    <div className="editor-layout">
+      <TiptapEditor provider={provider} />
+    </div>
+  );
 };
 
 export default EditorComponent;

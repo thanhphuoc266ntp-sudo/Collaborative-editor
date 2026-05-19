@@ -1,142 +1,97 @@
-const editorStyles = `
-.editor-shell {
-  width: 100%;
-  height: 100%;
-  background: #f3f4f6;
+/* Tổng quan Layout */
+.editor-layout {
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  background-color: #f3f4f6; /* Màu nền xám giống Google Docs */
+  font-family: Arial, sans-serif;
+}
+
+.tiptap-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   overflow: hidden;
 }
 
-.toolbar {
-  min-height: 52px;
-  padding: 8px 14px;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+/* Toolbar */
+.editor-toolbar {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  user-select: none;
+  gap: 4px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  z-index: 10;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.tool-btn {
-  min-width: 36px;
-  height: 34px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #111827;
-  border-radius: 6px;
-  font-size: 15px;
-  font-weight: 600;
+/* Nút Toolbar */
+.toolbar-btn {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
   cursor: pointer;
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
+  font-size: 16px;
+  min-width: 36px;
+  transition: all 0.2s ease;
+  color: #374151;
+}
+
+.toolbar-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.toolbar-btn.is-active {
+  background-color: #dbeafe; /* Xanh nhạt khi active */
+  color: #1d4ed8;
+}
+
+/* Trình bày trang A4 */
+.a4-page-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 0;
+  display: flex;
   justify-content: center;
 }
 
-.tool-btn:hover {
-  background: #f3f4f6;
+.a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: 20mm; /* Căn lề chuẩn A4 */
+  cursor: text; /* Giúp báo hiệu người dùng có thể click vào bất kỳ đâu trên giấy */
 }
 
-.tool-btn.is-active {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
+/* Quan trọng: Fix lỗi CSS của ProseMirror */
+.editor-content,
+.ProseMirror {
+  min-height: 100%;
+  outline: none; /* Bỏ viền xanh khó chịu khi focus */
 }
 
-.text-btn {
-  min-width: 44px;
-  padding: 0 10px;
+/* Căn chỉnh con trỏ Collaboration (Tùy chọn) */
+.collaboration-cursor__caret {
+  border-left: 2px solid;
+  border-right: 2px solid;
+  margin-left: -2px;
+  margin-right: -2px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
 }
-
-.divider {
-  width: 1px;
-  height: 28px;
-  background: #e5e7eb;
-  margin: 0 4px;
-}
-
-.save-status {
-  margin-left: auto;
-  font-size: 13px;
-  color: #6b7280;
+.collaboration-cursor__label {
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  left: -2px;
+  line-height: normal;
+  padding: 2px 6px;
+  position: absolute;
+  top: -1.5em;
+  user-select: none;
   white-space: nowrap;
 }
-
-.editor-scroll {
-  flex: 1;
-  overflow: auto;
-  padding: 32px 16px;
-}
-
-.a4-page {
-  width: 794px;
-  min-height: 1123px;
-  margin: 0 auto;
-  padding: 72px 80px;
-  background: #ffffff;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.14);
-  border-radius: 2px;
-  cursor: text;
-}
-
-.tiptap-editor-content {
-  min-height: 980px;
-  outline: none;
-  font-size: 16px;
-  line-height: 1.7;
-  color: #111827;
-}
-
-.ProseMirror {
-  min-height: 980px;
-  outline: none;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.ProseMirror p {
-  margin: 0 0 12px;
-}
-
-.ProseMirror h1 {
-  font-size: 32px;
-  line-height: 1.25;
-  margin: 20px 0 14px;
-  font-weight: 700;
-}
-
-.ProseMirror h2 {
-  font-size: 24px;
-  line-height: 1.3;
-  margin: 18px 0 12px;
-  font-weight: 700;
-}
-
-.ProseMirror ul {
-  padding-left: 28px;
-  margin: 8px 0 12px;
-}
-
-.ProseMirror li {
-  margin: 4px 0;
-}
-
-.editor-loading {
-  padding: 24px;
-  color: #374151;
-}
-`;
-
-if (!document.getElementById("editor-styles")) {
-  const style = document.createElement("style");
-  style.id = "editor-styles";
-  style.innerHTML = editorStyles;
-  document.head.appendChild(style);
-}
-
-export default editorStyles;
