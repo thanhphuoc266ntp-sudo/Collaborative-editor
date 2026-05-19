@@ -5,18 +5,21 @@ const documentSchema = new mongoose.Schema(
     title: {
       type: String,
       default: "Tài liệu không tên",
+      trim: true,
     },
 
     documentId: {
       type: String,
       unique: true,
+      index: true,
+      required: true,
       default: () => Math.random().toString(36).substring(2, 10),
     },
 
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
     },
 
     folderId: {
@@ -48,7 +51,9 @@ const documentSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
 module.exports = mongoose.model("Document", documentSchema);

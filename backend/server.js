@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const { Server: SocketIOServer } = require("socket.io");
+const Y = require("yjs");
 const connectDB = require("./config/db");
 const Document = require("./models/Document");
 
@@ -47,6 +48,71 @@ const startRealtimeServer = async () => {
 
     async onDisconnect(data) {
       console.log("Hocuspocus client disconnected:", data.documentName);
+    },
+
+    async onLoadDocument(data) {
+      const documentName = data.documentName;
+
+      console.log("📄 Đang load document:", documentName);
+
+      let dbDocument = await Document.findOne({ documentId: documentName });
+
+      if (!dbDocument) {
+        dbDocument = await Document.create({
+          documentId: documentName,
+          title: "Tài liệu không tên",
+          content: "",
+          yState: null,
+          owner: null,
+          folderId: "root",
+          collaborators: [],
+        });
+
+        console.log("🆕 Đã tạo document mới:", documentName);
+      }
+
+      const ydoc = new Y.Doc();
+
+      if (dbDocument.yState) {
+        Y.applyUpdate(ydoc, dbDocument.yState);
+        console.log("✅ Đã load yState từ MongoDB:", documentName);
+      } else {
+        console.log("ℹ️ Document chưa có yState:", documentName);
+      }
+
+      return ydoc;
+    },
+
+    async onStoreDocument(data) {
+      const documentName = data.documentName;
+      const ydoc = data.document;
+
+      console.log("💾 Đang lưu document:", documentName);
+
+      const state = Y.encodeStateAsUpdate(ydoc);
+
+      await Document.findOneAndUpdate(
+        { documentId: documentName },
+        {
+          $set: {
+            yState: Buffer.from(state),
+          },
+          $setOnInsert: {
+            documentId: documentName,
+            title: "Tài liệu không tên",
+            content: "",
+            owner: null,
+            folderId: "root",
+            collaborators: [],
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+        },
+      );
+
+      console.log("✅ Đã lưu yState vào MongoDB:", documentName);
     },
   });
 
@@ -118,8 +184,12 @@ io.on("connection", (socket) => {
 
       await Document.findOneAndUpdate(
         { documentId },
-        { content: content || "" },
-        { new: true },
+        {
+          content: content || "",
+        },
+        {
+          new: true,
+        },
       );
 
       socket.to(documentId).emit("document-saved", content);

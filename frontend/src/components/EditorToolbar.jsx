@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { TextSelection } from "@tiptap/pm/state";
 import ToolbarButton from "./ToolbarButton";
 
-const EditorToolbar = ({ editor, status }) => {
+const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -30,64 +31,90 @@ const EditorToolbar = ({ editor, status }) => {
 
   if (!editor) return null;
 
-  const getActiveMark = (markName) => {
-    const { state } = editor;
-    const markType = state.schema.marks[markName];
-
-    if (!markType) return false;
-
-    const { selection } = state;
-    const { empty, $from } = selection;
-
-    if (empty) {
-      const marks = state.storedMarks || $from.marks();
-      return markType.isInSet(marks);
-    }
-
-    return editor.isActive(markName);
-  };
-
-  const toggleMark = (markName) => {
+  const applyTypingMarks = () => {
     const { view } = editor;
     const { state } = view;
-    const { schema, selection } = state;
+    const marks = buildMarks(state.schema);
+
+    const transaction = state.tr.setStoredMarks(marks);
+
+    view.dispatch(transaction);
+    view.focus();
+  };
+
+  const insertZeroWidthBoundary = () => {
+    const { view } = editor;
+    const { state } = view;
+    const { schema } = state;
+
+    const boundary = schema.text("\u200B", []);
+    const marks = buildMarks(schema);
+
+    let transaction = state.tr.replaceSelectionWith(boundary, false);
+    const position = transaction.selection.to;
+
+    transaction = transaction
+      .setSelection(TextSelection.create(transaction.doc, position))
+      .setStoredMarks(marks);
+
+    view.dispatch(transaction);
+    view.focus();
+  };
+
+  const toggleTypingMark = (markName) => {
+    const { view } = editor;
+    const { state } = view;
+    const { selection, schema } = state;
     const markType = schema.marks[markName];
 
     if (!markType) return;
 
-    const { empty, from, to, $from } = selection;
-    const currentMarks = state.storedMarks || $from.marks();
-    const isActive = empty
-      ? Boolean(markType.isInSet(currentMarks))
-      : editor.isActive(markName);
+    const wasActive = Boolean(activeMarksRef.current[markName]);
 
-    let transaction = state.tr;
+    activeMarksRef.current = {
+      ...activeMarksRef.current,
+      [markName]: !wasActive,
+    };
 
-    if (empty) {
-      if (isActive) {
-        const nextMarks = currentMarks.filter((mark) => mark.type !== markType);
-        transaction = transaction.setStoredMarks(nextMarks);
-      } else {
-        const cleanMarks = currentMarks.filter(
-          (mark) => mark.type !== markType,
-        );
-        transaction = transaction.setStoredMarks([
-          ...cleanMarks,
+    const nextActive = Boolean(activeMarksRef.current[markName]);
+    const marks = buildMarks(schema);
+
+    view.focus();
+
+    if (!selection.empty) {
+      let transaction = state.tr;
+
+      if (nextActive) {
+        transaction = transaction.addMark(
+          selection.from,
+          selection.to,
           markType.create(),
-        ]);
-      }
-    } else {
-      if (isActive) {
-        transaction = transaction.removeMark(from, to, markType);
+        );
       } else {
-        transaction = transaction.addMark(from, to, markType.create());
+        transaction = transaction.removeMark(
+          selection.from,
+          selection.to,
+          markType,
+        );
+      }
+
+      transaction = transaction.setStoredMarks(marks);
+
+      view.dispatch(transaction);
+      view.focus();
+    } else {
+      view.dispatch(state.tr.setStoredMarks(marks));
+      view.focus();
+
+      if (wasActive && !nextActive) {
+        insertZeroWidthBoundary();
       }
     }
 
-    view.dispatch(transaction);
-    view.focus();
+    forceUpdate((value) => value + 1);
 
     requestAnimationFrame(() => {
+      applyTypingMarks();
       forceUpdate((value) => value + 1);
     });
   };
@@ -96,32 +123,37 @@ const EditorToolbar = ({ editor, status }) => {
     callback();
 
     requestAnimationFrame(() => {
+      editor.view.focus();
       forceUpdate((value) => value + 1);
     });
+  };
+
+  const isMarkActive = (markName) => {
+    return Boolean(activeMarksRef.current[markName]);
   };
 
   return (
     <div className="toolbar">
       <ToolbarButton
         title="In đậm"
-        active={getActiveMark("bold")}
-        onRun={() => toggleMark("bold")}
+        active={isMarkActive("bold")}
+        onRun={() => toggleTypingMark("bold")}
       >
         <b>B</b>
       </ToolbarButton>
 
       <ToolbarButton
         title="In nghiêng"
-        active={getActiveMark("italic")}
-        onRun={() => toggleMark("italic")}
+        active={isMarkActive("italic")}
+        onRun={() => toggleTypingMark("italic")}
       >
         <i>I</i>
       </ToolbarButton>
 
       <ToolbarButton
         title="Gạch chân"
-        active={getActiveMark("underline")}
-        onRun={() => toggleMark("underline")}
+        active={isMarkActive("underline")}
+        onRun={() => toggleTypingMark("underline")}
       >
         <u>U</u>
       </ToolbarButton>

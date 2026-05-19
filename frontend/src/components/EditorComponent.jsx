@@ -11,7 +11,7 @@ const EditorComponent = ({ documentId }) => {
   }, [documentId]);
 
   const provider = useMemo(() => {
-    if (!documentId || !ydoc) return null;
+    if (!documentId) return null;
 
     return new HocuspocusProvider({
       url: import.meta.env.VITE_COLLAB_URL,
@@ -21,7 +21,7 @@ const EditorComponent = ({ documentId }) => {
   }, [documentId, ydoc]);
 
   useEffect(() => {
-    if (!provider || !ydoc) return;
+    if (!provider) return;
 
     const handleConnect = () => {
       setStatus("Đã kết nối");
@@ -35,24 +35,23 @@ const EditorComponent = ({ documentId }) => {
       setStatus("Mất kết nối");
     };
 
-    const handleOpen = () => {
-      setStatus("Đang mở kết nối...");
-    };
-
-    provider.on("open", handleOpen);
     provider.on("connect", handleConnect);
     provider.on("synced", handleSynced);
     provider.on("disconnect", handleDisconnect);
 
     return () => {
-      provider.off("open", handleOpen);
       provider.off("connect", handleConnect);
       provider.off("synced", handleSynced);
       provider.off("disconnect", handleDisconnect);
       provider.destroy();
+    };
+  }, [provider]);
+
+  useEffect(() => {
+    return () => {
       ydoc.destroy();
     };
-  }, [provider, ydoc]);
+  }, [ydoc]);
 
   if (!documentId) {
     return <div className="editor-loading">Không tìm thấy tài liệu</div>;
