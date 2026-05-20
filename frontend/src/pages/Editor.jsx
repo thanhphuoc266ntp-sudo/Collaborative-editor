@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import EditorComponent from "../components/EditorComponent";
+import CurrentDocumentPanel from "../components/editor/CurrentDocumentPanel";
+import ProjectFoldersPanel from "../components/editor/ProjectFoldersPanel";
+import SharedDocumentsPanel from "../components/editor/SharedDocumentsPanel";
 import {
   createDocument,
   deleteDocument,
@@ -58,6 +61,13 @@ function Editor() {
     localStorage.getItem("userEmail") ||
     "user@gmail.com";
 
+  const selectedFolder = useMemo(() => {
+    return (
+      PROJECT_FOLDERS.find((folder) => folder.id === selectedFolderId) ||
+      PROJECT_FOLDERS[0]
+    );
+  }, [selectedFolderId]);
+
   const filteredDocuments = useMemo(() => {
     if (selectedFolderId === "all") return documents;
 
@@ -66,13 +76,6 @@ function Editor() {
       return folderId === selectedFolderId;
     });
   }, [documents, selectedFolderId]);
-
-  const selectedFolder = useMemo(() => {
-    return (
-      PROJECT_FOLDERS.find((folder) => folder.id === selectedFolderId) ||
-      PROJECT_FOLDERS[0]
-    );
-  }, [selectedFolderId]);
 
   const loadDocuments = async () => {
     try {
@@ -184,6 +187,7 @@ function Editor() {
           ...prev,
           folderId: newFolderId,
         }));
+
         setSelectedFolderId(newFolderId);
       }
     } catch (error) {
@@ -243,6 +247,17 @@ function Editor() {
     navigate("/login");
   };
 
+  const scrollToSharedDocuments = () => {
+    const section = document.querySelector(".shared-documents-section");
+
+    if (section) {
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
+
   return (
     <>
       <style>{editorPageStyles}</style>
@@ -283,156 +298,34 @@ function Editor() {
 
             <button
               className="sidebar-nav-item"
-              onClick={() => {
-                const section = document.querySelector(
-                  ".shared-documents-section",
-                );
-
-                if (section) {
-                  section.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  });
-                }
-              }}
+              onClick={scrollToSharedDocuments}
             >
               <span>👥</span>
               <span>Đã chia sẻ với tôi</span>
             </button>
           </div>
 
-          <div className="folder-list">
-            {PROJECT_FOLDERS.map((folder) => (
-              <button
-                key={folder.id}
-                className={
-                  selectedFolderId === folder.id
-                    ? "folder-card selected"
-                    : "folder-card"
-                }
-                onClick={() => setSelectedFolderId(folder.id)}
-              >
-                <div className="folder-card-icon">{folder.icon}</div>
+          <ProjectFoldersPanel
+            folders={PROJECT_FOLDERS}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={setSelectedFolderId}
+          />
 
-                <div className="folder-card-content">
-                  <strong>{folder.name}</strong>
-                  <span>{folder.description}</span>
-                </div>
-              </button>
-            ))}
-          </div>
+          <CurrentDocumentPanel
+            documents={filteredDocuments}
+            selectedFolder={selectedFolder}
+            documentIdFromUrl={documentIdFromUrl}
+            isLoadingDocuments={isLoadingDocuments}
+            onOpenDocument={handleOpenDocument}
+            onDeleteDocument={handleDeleteDocument}
+            onChangeDocumentFolder={handleChangeDocumentFolder}
+          />
 
-          <div className="document-list-section">
-            <div className="document-list-header">
-              <span>{selectedFolder.name}</span>
-              <small>{filteredDocuments.length} tài liệu</small>
-            </div>
-
-            {isLoadingDocuments ? (
-              <div className="document-empty">Đang tải tài liệu...</div>
-            ) : filteredDocuments.length === 0 ? (
-              <div className="document-empty">
-                Chưa có tài liệu trong thư mục này.
-              </div>
-            ) : (
-              <div className="document-list">
-                {filteredDocuments.map((doc) => (
-                  <div
-                    key={doc._id}
-                    className={
-                      documentIdFromUrl === doc._id
-                        ? "document-item selected"
-                        : "document-item"
-                    }
-                    onClick={() => handleOpenDocument(doc._id)}
-                  >
-                    <div className="document-item-main">
-                      <span className="document-icon">📄</span>
-
-                      <div className="document-info">
-                        <strong>{doc.title || "Tài liệu không tên"}</strong>
-                        <small>
-                          {doc.updatedAt
-                            ? new Date(doc.updatedAt).toLocaleDateString(
-                                "vi-VN",
-                              )
-                            : "Chưa cập nhật"}
-                        </small>
-                      </div>
-                    </div>
-
-                    <div className="document-actions">
-                      <select
-                        className="document-folder-select"
-                        value={doc.folderId || "web-project"}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          handleChangeDocumentFolder(event, doc._id)
-                        }
-                      >
-                        {PROJECT_FOLDERS.filter(
-                          (folder) => folder.id !== "all",
-                        ).map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        className="delete-document-btn"
-                        onClick={(event) =>
-                          handleDeleteDocument(event, doc._id)
-                        }
-                        title="Xóa tài liệu"
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="shared-documents-section">
-            <div className="document-list-header">
-              <span>Đã chia sẻ với tôi</span>
-              <small>{sharedDocuments.length} tài liệu</small>
-            </div>
-
-            {sharedDocuments.length === 0 ? (
-              <div className="document-empty">
-                Chưa có tài liệu nào được chia sẻ với bạn.
-              </div>
-            ) : (
-              <div className="document-list">
-                {sharedDocuments.map((doc) => (
-                  <div
-                    key={doc._id}
-                    className={
-                      documentIdFromUrl === doc._id
-                        ? "document-item selected"
-                        : "document-item"
-                    }
-                    onClick={() => handleOpenDocument(doc._id)}
-                  >
-                    <div className="document-item-main">
-                      <span className="document-icon">👥</span>
-
-                      <div className="document-info">
-                        <strong>{doc.title || "Tài liệu không tên"}</strong>
-                        <small>
-                          Chủ sở hữu:{" "}
-                          {doc.owner?.email || doc.owner?.name || "Không rõ"}
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <SharedDocumentsPanel
+            sharedDocuments={sharedDocuments}
+            documentIdFromUrl={documentIdFromUrl}
+            onOpenDocument={handleOpenDocument}
+          />
         </aside>
 
         <main className="editor-main">
