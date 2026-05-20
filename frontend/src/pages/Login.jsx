@@ -35,7 +35,7 @@ const Login = () => {
       throw new Error("Không tìm thấy userId để tạo tài liệu");
     }
 
-    const createDocRes = await API.post("/documents/create", {
+    const createDocRes = await API.post("/documents", {
       userId,
       title: "Tài liệu không tên",
     });
