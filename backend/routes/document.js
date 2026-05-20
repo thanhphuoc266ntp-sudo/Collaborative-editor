@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Document = require("../models/Document");
 const User = require("../models/User");
 const auth = require("../middleWare/auth");
@@ -6,7 +7,11 @@ const auth = require("../middleWare/auth");
 const router = express.Router();
 
 const getUserId = (req) => {
-  return req.user?.id || req.user?._id || req.user?.userId;
+  return req.user?.id || req.user?._id || req.user?.userId || null;
+};
+
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id));
 };
 
 const normalizeTitle = (title) => {
@@ -24,12 +29,16 @@ const normalizeFolderId = (folderId) => {
   return "web-project";
 };
 
+const getDocumentOwnerId = (document) => {
+  return String(document.owner?._id || document.owner);
+};
+
 const canAccessDocument = (document, userId) => {
   if (!document || !userId) return false;
 
-  const ownerId = String(document.owner?._id || document.owner);
-
-  if (ownerId === String(userId)) return true;
+  if (getDocumentOwnerId(document) === String(userId)) {
+    return true;
+  }
 
   return document.collaborators.some((collaborator) => {
     const collaboratorId = String(collaborator.user?._id || collaborator.user);
@@ -40,9 +49,9 @@ const canAccessDocument = (document, userId) => {
 const canEditDocument = (document, userId) => {
   if (!document || !userId) return false;
 
-  const ownerId = String(document.owner?._id || document.owner);
-
-  if (ownerId === String(userId)) return true;
+  if (getDocumentOwnerId(document) === String(userId)) {
+    return true;
+  }
 
   return document.collaborators.some((collaborator) => {
     const collaboratorId = String(collaborator.user?._id || collaborator.user);
@@ -50,11 +59,11 @@ const canEditDocument = (document, userId) => {
   });
 };
 
-router.post("/", auth, async (req, res) => {
+const createNewDocument = async (req, res) => {
   try {
     const userId = getUserId(req);
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
       });
@@ -83,13 +92,17 @@ router.post("/", auth, async (req, res) => {
       message: error.message || "Lỗi server khi tạo tài liệu.",
     });
   }
-});
+};
+
+router.post("/", auth, createNewDocument);
+
+router.post("/create", auth, createNewDocument);
 
 router.get("/", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
       });
@@ -118,7 +131,7 @@ router.get("/shared-with-me", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
       });
@@ -132,6 +145,7 @@ router.get("/shared-with-me", auth, async (req, res) => {
     })
       .select("-yState")
       .populate("owner", "name email")
+      .populate("collaborators.user", "name email")
       .sort({ updatedAt: -1 });
 
     return res.json({
@@ -151,9 +165,15 @@ router.get("/:documentId", auth, async (req, res) => {
     const userId = getUserId(req);
     const { documentId } = req.params;
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
+      });
+    }
+
+    if (!isValidObjectId(documentId)) {
+      return res.status(400).json({
+        message: "documentId không hợp lệ.",
       });
     }
 
@@ -192,9 +212,15 @@ router.put("/:documentId/title", auth, async (req, res) => {
     const { documentId } = req.params;
     const { title } = req.body;
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
+      });
+    }
+
+    if (!isValidObjectId(documentId)) {
+      return res.status(400).json({
+        message: "documentId không hợp lệ.",
       });
     }
 
@@ -239,9 +265,15 @@ router.put("/:documentId/folder", auth, async (req, res) => {
     const { documentId } = req.params;
     const { folderId } = req.body;
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
+      });
+    }
+
+    if (!isValidObjectId(documentId)) {
+      return res.status(400).json({
+        message: "documentId không hợp lệ.",
       });
     }
 
@@ -253,9 +285,7 @@ router.put("/:documentId/folder", auth, async (req, res) => {
       });
     }
 
-    const ownerId = String(document.owner?._id || document.owner);
-
-    if (ownerId !== String(userId)) {
+    if (getDocumentOwnerId(document) !== String(userId)) {
       return res.status(403).json({
         message: "Chỉ chủ sở hữu mới được chuyển thư mục tài liệu.",
       });
@@ -288,9 +318,15 @@ router.post("/:documentId/share", auth, async (req, res) => {
     const { documentId } = req.params;
     const { email, role } = req.body;
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
+      });
+    }
+
+    if (!isValidObjectId(documentId)) {
+      return res.status(400).json({
+        message: "documentId không hợp lệ.",
       });
     }
 
@@ -308,9 +344,7 @@ router.post("/:documentId/share", auth, async (req, res) => {
       });
     }
 
-    const ownerId = String(document.owner?._id || document.owner);
-
-    if (ownerId !== String(userId)) {
+    if (getDocumentOwnerId(document) !== String(userId)) {
       return res.status(403).json({
         message: "Chỉ chủ sở hữu mới được chia sẻ tài liệu.",
       });
@@ -372,9 +406,15 @@ router.delete("/:documentId", auth, async (req, res) => {
     const userId = getUserId(req);
     const { documentId } = req.params;
 
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
       return res.status(401).json({
         message: "Không xác định được người dùng.",
+      });
+    }
+
+    if (!isValidObjectId(documentId)) {
+      return res.status(400).json({
+        message: "documentId không hợp lệ.",
       });
     }
 
@@ -386,9 +426,7 @@ router.delete("/:documentId", auth, async (req, res) => {
       });
     }
 
-    const ownerId = String(document.owner?._id || document.owner);
-
-    if (ownerId !== String(userId)) {
+    if (getDocumentOwnerId(document) !== String(userId)) {
       return res.status(403).json({
         message: "Chỉ chủ sở hữu mới được xóa tài liệu.",
       });

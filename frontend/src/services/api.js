@@ -58,11 +58,19 @@ export const getSharedDocuments = async () => {
 };
 
 export const getDocumentById = async (documentId) => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.get(`/documents/${documentId}`);
   return extractDocument(res.data);
 };
 
 export const updateDocumentTitle = async (documentId, title) => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.put(`/documents/${documentId}/title`, {
     title: title || "Tài liệu không tên",
   });
@@ -71,6 +79,10 @@ export const updateDocumentTitle = async (documentId, title) => {
 };
 
 export const updateDocumentFolder = async (documentId, folderId) => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.put(`/documents/${documentId}/folder`, {
     folderId: folderId || "web-project",
   });
@@ -79,6 +91,10 @@ export const updateDocumentFolder = async (documentId, folderId) => {
 };
 
 export const shareDocument = async (documentId, email, role = "viewer") => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.post(`/documents/${documentId}/share`, {
     email,
     role,
@@ -88,6 +104,10 @@ export const shareDocument = async (documentId, email, role = "viewer") => {
 };
 
 export const deleteDocument = async (documentId) => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.delete(`/documents/${documentId}`);
   return res.data;
 };
