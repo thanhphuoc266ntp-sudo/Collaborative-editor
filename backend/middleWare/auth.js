@@ -24,6 +24,9 @@ const getUserIdFromDecodedToken = (decoded) => {
     decoded.data?.id ||
     decoded.data?._id ||
     decoded.data?.userId ||
+    decoded.payload?.id ||
+    decoded.payload?._id ||
+    decoded.payload?.userId ||
     null
   );
 };
@@ -48,6 +51,13 @@ const auth = async (req, res, next) => {
       });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is missing");
+      return res.status(500).json({
+        message: "Server chưa cấu hình JWT_SECRET.",
+      });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     let userId = getUserIdFromDecodedToken(decoded);
@@ -64,12 +74,16 @@ const auth = async (req, res, next) => {
     }
 
     if (!userId) {
+      console.error("Token decoded but userId missing:", decoded);
+
       return res.status(401).json({
         message: "Token không chứa thông tin người dùng.",
       });
     }
 
     if (!mongoose.Types.ObjectId.isValid(String(userId))) {
+      console.error("Invalid userId in token:", userId);
+
       return res.status(401).json({
         message: "Thông tin người dùng trong token không hợp lệ.",
       });
@@ -79,11 +93,13 @@ const auth = async (req, res, next) => {
       id: String(userId),
       _id: String(userId),
       userId: String(userId),
-      email,
+      email: email || null,
     };
 
     next();
   } catch (error) {
+    console.error("Auth middleware error:", error.message);
+
     return res.status(401).json({
       message: "Token hết hạn hoặc không hợp lệ.",
     });

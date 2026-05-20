@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const mongoose = require("mongoose");
 
 const connectDB = require("./config/db");
 const Document = require("./models/Document");
@@ -34,6 +35,10 @@ app.use("/api/documents", require("./routes/document"));
 
 const server = http.createServer(app);
 
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id));
+};
+
 const startRealtimeServer = async () => {
   const { Hocuspocus } = await import("@hocuspocus/server");
   const { default: crossws } = await import("crossws/adapters/node");
@@ -47,63 +52,66 @@ const startRealtimeServer = async () => {
     reason = "ydoc-update",
   ) => {
     if (!documentName || !ydoc) {
-      console.log("⚠️ Thiếu documentName hoặc ydoc, bỏ qua lưu");
+      console.log("Thiếu documentName hoặc ydoc, bỏ qua lưu");
+      return;
+    }
+
+    if (!isValidObjectId(documentName)) {
+      console.log(
+        "documentName không phải MongoDB ObjectId, bỏ qua lưu:",
+        documentName,
+      );
       return;
     }
 
     const state = Y.encodeStateAsUpdate(ydoc);
     const nextBuffer = Buffer.from(state);
 
-    const oldDocument = await Document.findOne({
-      documentId: documentName,
-    });
+    const oldDocument = await Document.findById(documentName);
 
-    const oldLength = oldDocument?.yState ? oldDocument.yState.length : 0;
+    if (!oldDocument) {
+      console.log(
+        "Không tìm thấy document trong MongoDB, bỏ qua lưu:",
+        documentName,
+      );
+      return;
+    }
+
+    const oldLength = oldDocument.yState ? oldDocument.yState.length : 0;
     const newLength = nextBuffer.length;
 
     console.log(
-      `💾 Chuẩn bị lưu: ${documentName}, old=${oldLength}, new=${newLength}, reason=${reason}`,
+      `Chuẩn bị lưu yState: ${documentName}, old=${oldLength}, new=${newLength}, reason=${reason}`,
     );
 
     if (oldLength > 0 && newLength <= 56) {
       console.log(
-        `⚠️ Bỏ qua lưu state rỗng/quá nhỏ: ${documentName}, old=${oldLength}, new=${newLength}`,
+        `Bỏ qua lưu state rỗng/quá nhỏ: ${documentName}, old=${oldLength}, new=${newLength}`,
       );
       return;
     }
 
     if (oldLength > 120 && newLength < oldLength * 0.5) {
       console.log(
-        `⚠️ Bỏ qua lưu vì state mới nhỏ bất thường: ${documentName}, old=${oldLength}, new=${newLength}`,
+        `Bỏ qua lưu vì state mới nhỏ bất thường: ${documentName}, old=${oldLength}, new=${newLength}`,
       );
       return;
     }
 
-    const saved = await Document.findOneAndUpdate(
-      {
-        documentId: documentName,
-      },
+    const saved = await Document.findByIdAndUpdate(
+      documentName,
       {
         $set: {
           yState: nextBuffer,
         },
-        $setOnInsert: {
-          documentId: documentName,
-          title: "Tài liệu không tên",
-          content: "",
-          owner: null,
-          folderId: "root",
-          collaborators: [],
-        },
       },
       {
-        upsert: true,
-        returnDocument: "after",
+        new: true,
       },
     );
 
     console.log(
-      `✅ Đã lưu yState: ${saved.documentId}, buffer length: ${
+      `Đã lưu yState: ${saved._id}, buffer length: ${
         saved.yState ? saved.yState.length : 0
       }, reason=${reason}`,
     );
@@ -120,7 +128,7 @@ const startRealtimeServer = async () => {
       try {
         await saveYjsDocument(documentName, ydoc, "ydoc-update");
       } catch (error) {
-        console.error("❌ Lỗi lưu yState:", error);
+        console.error("Lỗi lưu yState:", error);
       } finally {
         saveTimers.delete(documentName);
       }
@@ -133,54 +141,52 @@ const startRealtimeServer = async () => {
     name: "collaborative-editor-hocuspocus",
 
     async onConnect(data) {
-      console.log("🔌 Hocuspocus connected:", data.documentName);
+      console.log("Hocuspocus connected:", data.documentName);
     },
 
     async onDisconnect(data) {
-      console.log("🔌 Hocuspocus disconnected:", data.documentName);
-      console.log(
-        "ℹ️ Không lưu khi disconnect để tránh ghi đè rỗng khi reload",
-      );
+      console.log("Hocuspocus disconnected:", data.documentName);
+      console.log("Không lưu khi disconnect để tránh ghi đè rỗng khi reload");
     },
 
     async onLoadDocument(data) {
       const documentName = data.documentName;
 
-      console.log("📄 onLoadDocument:", documentName);
+      console.log("onLoadDocument:", documentName);
 
-      let dbDocument = await Document.findOne({
-        documentId: documentName,
-      });
+      const ydoc = new Y.Doc();
+
+      if (!documentName || !isValidObjectId(documentName)) {
+        console.log(
+          "documentName không hợp lệ, trả về Y.Doc rỗng:",
+          documentName,
+        );
+        return ydoc;
+      }
+
+      const dbDocument = await Document.findById(documentName);
 
       if (!dbDocument) {
-        dbDocument = await Document.create({
-          documentId: documentName,
-          title: "Tài liệu không tên",
-          content: "",
-          yState: null,
-          owner: null,
-          folderId: "root",
-          collaborators: [],
-        });
-
-        console.log("🆕 Tạo document mới:", documentName);
+        console.log(
+          "Không tìm thấy document, trả về Y.Doc rỗng:",
+          documentName,
+        );
+        return ydoc;
       }
 
       const currentLength = dbDocument.yState ? dbDocument.yState.length : 0;
 
-      console.log("📦 yState trong Mongo:", currentLength, "bytes");
-
-      const ydoc = new Y.Doc();
+      console.log("yState trong Mongo:", currentLength, "bytes");
 
       if (dbDocument.yState && dbDocument.yState.length > 0) {
         Y.applyUpdate(ydoc, new Uint8Array(dbDocument.yState));
-        console.log("✅ Đã apply yState:", documentName);
+        console.log("Đã apply yState:", documentName);
       } else {
-        console.log("ℹ️ Chưa có yState để load:", documentName);
+        console.log("Chưa có yState để load:", documentName);
       }
 
       ydoc.on("update", () => {
-        console.log("✏️ Y.Doc update:", documentName);
+        console.log("Y.Doc update:", documentName);
         scheduleSave(documentName, ydoc);
       });
 
@@ -188,13 +194,16 @@ const startRealtimeServer = async () => {
     },
 
     async onChange(data) {
-      console.log("✏️ onChange:", data.documentName);
-      scheduleSave(data.documentName, data.document);
+      console.log("onChange:", data.documentName);
+
+      if (data.document) {
+        scheduleSave(data.documentName, data.document);
+      }
     },
 
     async onStoreDocument(data) {
       console.log(
-        "ℹ️ onStoreDocument fired nhưng không lưu trực tiếp:",
+        "onStoreDocument fired nhưng không lưu trực tiếp:",
         data.documentName,
       );
     },
@@ -224,7 +233,7 @@ const startRealtimeServer = async () => {
       },
 
       error(peer, error) {
-        console.error("❌ Hocuspocus WebSocket error:", error);
+        console.error("Hocuspocus WebSocket error:", error);
       },
     },
   });
@@ -238,16 +247,16 @@ const startRealtimeServer = async () => {
     socket.destroy();
   });
 
-  console.log("✅ Hocuspocus realtime server đã sẵn sàng tại /collaboration");
+  console.log("Hocuspocus realtime server đã sẵn sàng tại /collaboration");
 };
 
 startRealtimeServer()
   .then(() => {
     server.listen(PORT, () => {
-      console.log(`🚀 Server đang chạy tại port ${PORT}`);
+      console.log(`Server đang chạy tại port ${PORT}`);
     });
   })
   .catch((error) => {
-    console.error("❌ Không thể khởi động Hocuspocus:", error);
+    console.error("Không thể khởi động Hocuspocus:", error);
     process.exit(1);
   });
