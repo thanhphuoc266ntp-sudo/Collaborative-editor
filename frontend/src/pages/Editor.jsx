@@ -12,6 +12,7 @@ import {
   getSharedDocuments,
   updateDocumentFolder,
   updateDocumentTitle,
+  shareDocument,
 } from "../services/api";
 import editorPageStyles from "../styles/editorPageStyles";
 
@@ -179,7 +180,9 @@ function Editor() {
     } catch (error) {
       console.error("Lỗi tạo tài liệu:", error);
       alert(
-        "Không thể tạo tài liệu mới. Vui lòng kiểm tra backend hoặc database.",
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể tạo tài liệu mới. Vui lòng kiểm tra backend hoặc database.",
       );
     }
   };
@@ -214,7 +217,11 @@ function Editor() {
       }
     } catch (error) {
       console.error("Lỗi xóa tài liệu:", error);
-      alert("Không thể xóa tài liệu.");
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể xóa tài liệu.",
+      );
     }
   };
 
@@ -242,7 +249,11 @@ function Editor() {
       }
     } catch (error) {
       console.error("Lỗi cập nhật thư mục:", error);
-      alert("Không thể chuyển thư mục cho tài liệu.");
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể chuyển thư mục cho tài liệu.",
+      );
     }
   };
 
@@ -269,24 +280,57 @@ function Editor() {
     } catch (error) {
       console.error("Lỗi đổi tên tài liệu:", error);
       setSaveStatus("Lỗi lưu tên tài liệu");
-      alert("Không thể đổi tên tài liệu.");
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể đổi tên tài liệu.",
+      );
     }
   };
 
-  const handleCopyShareLink = async () => {
+  const handleShareDocument = async () => {
     if (!activeDocumentId) {
       alert("Bạn cần mở hoặc tạo tài liệu trước khi chia sẻ.");
       return;
     }
 
-    const link = `${window.location.origin}/editor/${activeDocumentId}`;
+    const email = window.prompt("Nhập email tài khoản người bạn muốn chia sẻ:");
+
+    if (!email || !email.trim()) {
+      return;
+    }
+
+    const roleInput = window.prompt(
+      "Nhập quyền cho người nhận: viewer hoặc editor",
+      "editor",
+    );
+
+    const role = roleInput === "viewer" ? "viewer" : "editor";
 
     try {
-      await navigator.clipboard.writeText(link);
-      alert("Đã copy link chia sẻ.");
+      await shareDocument(activeDocumentId, email.trim(), role);
+
+      const link = `${window.location.origin}/editor/${activeDocumentId}`;
+
+      try {
+        await navigator.clipboard.writeText(link);
+      } catch (copyError) {
+        console.error("Không thể copy link tự động:", copyError);
+      }
+
+      await loadDocuments();
+
+      alert(
+        `Đã chia sẻ tài liệu cho ${email.trim()} với quyền ${role}. Link tài liệu cũng đã được copy.`,
+      );
     } catch (error) {
-      console.error("Lỗi copy link:", error);
-      window.prompt("Copy link chia sẻ:", link);
+      console.error("Lỗi chia sẻ tài liệu:", error);
+
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể chia sẻ tài liệu.",
+      );
     }
   };
 
@@ -297,6 +341,7 @@ function Editor() {
     localStorage.removeItem("email");
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userName");
+    localStorage.removeItem("user");
     localStorage.removeItem("redirectAfterLogin");
 
     navigate("/login", { replace: true });
@@ -404,7 +449,7 @@ function Editor() {
             </div>
 
             <div className="editor-header-actions">
-              <button className="share-button" onClick={handleCopyShareLink}>
+              <button className="share-button" onClick={handleShareDocument}>
                 + Chia sẻ
               </button>
 
