@@ -9,7 +9,7 @@ import Collaboration from "@tiptap/extension-collaboration";
 import EditorToolbar from "./EditorToolbar";
 import "./editorStyles";
 
-const TiptapEditor = ({ ydoc, status }) => {
+const TiptapEditor = ({ ydoc, provider, status }) => {
   const activeMarksRef = useRef({
     bold: false,
     italic: false,
@@ -41,7 +41,6 @@ const TiptapEditor = ({ ydoc, status }) => {
           history: false,
           bold: false,
           italic: false,
-          underline: false,
         }),
         Bold,
         Italic,
@@ -79,9 +78,14 @@ const TiptapEditor = ({ ydoc, status }) => {
       },
 
       autofocus: true,
+      editable: Boolean(ydoc && provider),
     },
-    [ydoc],
+    [ydoc, provider],
   );
+
+  if (!ydoc || !provider) {
+    return <div className="editor-loading">Đang kết nối tài liệu...</div>;
+  }
 
   if (!editor) {
     return <div className="editor-loading">Đang tải trình soạn thảo...</div>;
