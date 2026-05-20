@@ -14,8 +14,10 @@ const Editor = () => {
   const navigate = useNavigate();
   const { documentId } = useParams();
 
-  const [currentDocumentId, setCurrentDocumentId] = useState(documentId);
-  const [title, setTitle] = useState("Tài liệu không tên");
+  const [currentDocumentId, setCurrentDocumentId] = useState(
+    documentId || null,
+  );
+  const [title, setTitle] = useState("Chưa mở tài liệu");
   const [documents, setDocuments] = useState([]);
   const [sharedDocuments, setSharedDocuments] = useState([]);
   const [activeMenu, setActiveMenu] = useState("current");
@@ -48,25 +50,19 @@ const Editor = () => {
       try {
         setLoading(true);
 
-        if (documentId) {
-          setCurrentDocumentId(documentId);
-
-          const response = await getDocumentById(documentId);
-
-          if (response.success && response.document) {
-            setTitle(response.document.title || "Tài liệu không tên");
-          }
-
+        if (!documentId) {
+          setCurrentDocumentId(null);
+          setTitle("Chưa mở tài liệu");
           setLoading(false);
           return;
         }
 
-        const response = await createDocument("Tài liệu không tên");
+        setCurrentDocumentId(documentId);
 
-        if (response.success) {
-          const newDocumentId = response.document.documentId;
-          setCurrentDocumentId(newDocumentId);
-          navigate(`/editor/${newDocumentId}`, { replace: true });
+        const response = await getDocumentById(documentId);
+
+        if (response.success && response.document) {
+          setTitle(response.document.title || "Tài liệu không tên");
         }
       } catch (error) {
         console.error("Lỗi chuẩn bị tài liệu:", error);
@@ -76,7 +72,7 @@ const Editor = () => {
     };
 
     prepareDocument();
-  }, [documentId, token, navigate]);
+  }, [documentId, token]);
 
   const loadDocuments = async () => {
     try {
@@ -100,8 +96,13 @@ const Editor = () => {
       const response = await createDocument("Tài liệu không tên");
 
       if (response.success) {
-        const newDocumentId = response.document.documentId;
-        setDocuments((prev) => [response.document, ...prev]);
+        const newDocument = response.document;
+        const newDocumentId = newDocument.documentId;
+
+        setDocuments((prev) => [newDocument, ...prev]);
+        setCurrentDocumentId(newDocumentId);
+        setTitle(newDocument.title || "Tài liệu không tên");
+
         navigate(`/editor/${newDocumentId}`);
       }
     } catch (error) {
@@ -115,7 +116,10 @@ const Editor = () => {
   };
 
   const handleShare = async () => {
-    if (!currentDocumentId) return;
+    if (!currentDocumentId) {
+      alert("Bạn cần mở tài liệu trước khi chia sẻ");
+      return;
+    }
 
     const shareUrl = `${window.location.origin}/editor/${currentDocumentId}`;
 
@@ -145,6 +149,97 @@ const Editor = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
+  };
+
+  const renderCurrentDocuments = () => {
+    if (documents.length === 0) {
+      return (
+        <div className="empty-box">
+          <div>📄</div>
+          <p>Chưa có tài liệu</p>
+          <small>Bấm tạo tài liệu mới để bắt đầu.</small>
+        </div>
+      );
+    }
+
+    return documents.map((doc) => (
+      <button
+        key={doc.documentId}
+        className={`doc-list-item ${
+          doc.documentId === currentDocumentId ? "selected" : ""
+        }`}
+        onClick={() => handleOpenDocument(doc.documentId)}
+      >
+        <span className="doc-title">{doc.title || "Tài liệu không tên"}</span>
+        <span className="doc-time">
+          {doc.updatedAt
+            ? new Date(doc.updatedAt).toLocaleDateString("vi-VN")
+            : ""}
+        </span>
+      </button>
+    ));
+  };
+
+  const renderProjectFolders = () => {
+    return (
+      <div className="folder-panel">
+        <div className="folder-card active-folder">
+          <span>📁</span>
+          <div>
+            <strong>Tất cả tài liệu</strong>
+            <small>{documents.length} tài liệu</small>
+          </div>
+        </div>
+
+        <div className="folder-card">
+          <span>💻</span>
+          <div>
+            <strong>Đồ án Web</strong>
+            <small>Gợi ý nhóm tài liệu theo dự án</small>
+          </div>
+        </div>
+
+        <div className="folder-card">
+          <span>🔐</span>
+          <div>
+            <strong>Mật mã học</strong>
+            <small>Có thể phát triển thêm bằng folderId</small>
+          </div>
+        </div>
+
+        <div className="folder-note">
+          Hiện tại thư mục dự án có thể dùng để phân loại tài liệu theo
+          folderId. Nếu cần làm nhanh để nộp, bạn có thể để phần này là hướng
+          phát triển.
+        </div>
+      </div>
+    );
+  };
+
+  const renderSharedDocuments = () => {
+    if (sharedDocuments.length === 0) {
+      return (
+        <div className="empty-box">
+          <div>👥</div>
+          <p>Chưa có tài liệu được chia sẻ</p>
+        </div>
+      );
+    }
+
+    return sharedDocuments.map((doc) => (
+      <button
+        key={doc.documentId}
+        className={`doc-list-item ${
+          doc.documentId === currentDocumentId ? "selected" : ""
+        }`}
+        onClick={() => handleOpenDocument(doc.documentId)}
+      >
+        <span className="doc-title">{doc.title || "Tài liệu không tên"}</span>
+        <span className="doc-time">
+          Chủ sở hữu: {doc.owner?.name || doc.owner?.email || "Ẩn"}
+        </span>
+      </button>
+    ));
   };
 
   if (!token) return null;
@@ -185,52 +280,9 @@ const Editor = () => {
         </button>
 
         <div className="sidebar-list">
-          {activeMenu === "current" &&
-            documents.map((doc) => (
-              <button
-                key={doc.documentId}
-                className={`doc-list-item ${
-                  doc.documentId === currentDocumentId ? "selected" : ""
-                }`}
-                onClick={() => handleOpenDocument(doc.documentId)}
-              >
-                <span className="doc-title">{doc.title}</span>
-                <span className="doc-time">
-                  {new Date(doc.updatedAt).toLocaleDateString("vi-VN")}
-                </span>
-              </button>
-            ))}
-
-          {activeMenu === "folders" && (
-            <div className="empty-box">
-              <div>📁</div>
-              <p>Thư mục dự án</p>
-              <small>Tính năng phân thư mục có thể phát triển thêm.</small>
-            </div>
-          )}
-
-          {activeMenu === "shared" &&
-            sharedDocuments.map((doc) => (
-              <button
-                key={doc.documentId}
-                className={`doc-list-item ${
-                  doc.documentId === currentDocumentId ? "selected" : ""
-                }`}
-                onClick={() => handleOpenDocument(doc.documentId)}
-              >
-                <span className="doc-title">{doc.title}</span>
-                <span className="doc-time">
-                  Chủ sở hữu: {doc.owner?.name || doc.owner?.email || "Ẩn"}
-                </span>
-              </button>
-            ))}
-
-          {activeMenu === "shared" && sharedDocuments.length === 0 && (
-            <div className="empty-box">
-              <div>👥</div>
-              <p>Chưa có tài liệu được chia sẻ</p>
-            </div>
-          )}
+          {activeMenu === "current" && renderCurrentDocuments()}
+          {activeMenu === "folders" && renderProjectFolders()}
+          {activeMenu === "shared" && renderSharedDocuments()}
         </div>
       </aside>
 
@@ -240,9 +292,11 @@ const Editor = () => {
             <input
               className="document-title-input"
               value={title}
+              disabled={!currentDocumentId}
               onChange={(event) => setTitle(event.target.value)}
               onBlur={handleTitleBlur}
             />
+
             <div className="cloud-status">
               <span className="green-dot"></span>
               {titleSaving ? "Đang lưu tên..." : "Đã lưu trên đám mây"}
@@ -270,8 +324,17 @@ const Editor = () => {
         </header>
 
         <section className="editor-content-area">
-          {loading || !currentDocumentId ? (
+          {loading ? (
             <div className="editor-loading">Đang tải tài liệu...</div>
+          ) : !currentDocumentId ? (
+            <div className="empty-editor-state">
+              <h2>Chưa mở tài liệu</h2>
+              <p>
+                Chọn một tài liệu ở thanh bên trái hoặc tạo tài liệu mới để bắt
+                đầu.
+              </p>
+              <button onClick={handleCreateDocument}>+ Tạo tài liệu mới</button>
+            </div>
           ) : (
             <EditorComponent documentId={currentDocumentId} />
           )}
