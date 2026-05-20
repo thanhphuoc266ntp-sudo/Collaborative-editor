@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -23,10 +24,32 @@ const generateUserColor = () => {
 
 const createToken = (user) => {
   return jwt.sign(
-    { userId: user._id, username: user.username },
+    {
+      userId: user._id,
+      id: user._id,
+      username: user.username,
+      email: user.email,
+    },
     process.env.JWT_SECRET,
-    { expiresIn: "24h" },
+    {
+      expiresIn: "24h",
+    },
   );
+};
+
+const buildSafeUser = (user) => {
+  const displayName = user.displayName || user.username || user.email;
+
+  return {
+    id: user._id,
+    _id: user._id,
+    userId: user._id,
+    username: user.username,
+    name: displayName,
+    displayName,
+    email: user.email,
+    color: user.userColor,
+  };
 };
 
 const sendOtpEmail = async ({ to, subject, otp, type }) => {
@@ -42,7 +65,11 @@ const sendOtpEmail = async ({ to, subject, otp, type }) => {
       name: "Hệ thống Soạn thảo",
       email: SENDER_EMAIL,
     },
-    to: [{ email: to }],
+    to: [
+      {
+        email: to,
+      },
+    ],
     subject,
     htmlContent: `
       <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
@@ -89,7 +116,10 @@ exports.register = async (req, res) => {
       });
     }
 
-    const existingEmailUser = await User.findOne({ email: cleanEmail });
+    const existingEmailUser = await User.findOne({
+      email: cleanEmail,
+    });
+
     const existingUsernameUser = await User.findOne({
       username: cleanUsername,
     });
@@ -155,6 +185,7 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi đăng ký:", error.response?.data || error.message);
+
     res.status(500).json({
       message: "Lỗi server, vui lòng thử lại sau!",
     });
@@ -174,7 +205,9 @@ exports.verifyRegistration = async (req, res) => {
     const user = await User.findOne({
       email: email.trim().toLowerCase(),
       resetPasswordOtp: otp.trim(),
-      resetPasswordOtpExpires: { $gt: Date.now() },
+      resetPasswordOtpExpires: {
+        $gt: Date.now(),
+      },
     });
 
     if (!user) {
@@ -186,24 +219,20 @@ exports.verifyRegistration = async (req, res) => {
     user.isVerified = true;
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
+
     await user.save();
 
     const token = createToken(user);
 
-    res.json({
+    return res.json({
       message: "Xác thực thành công! Chào mừng bạn.",
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        displayName: user.displayName,
-        color: user.userColor,
-      },
+      user: buildSafeUser(user),
     });
   } catch (error) {
     console.error("Lỗi xác thực đăng ký:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Lỗi hệ thống!",
     });
   }
@@ -219,7 +248,9 @@ exports.login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ username: username.trim() });
+    const user = await User.findOne({
+      username: username.trim(),
+    });
 
     if (!user || !user.password) {
       return res.status(400).json({
@@ -243,20 +274,15 @@ exports.login = async (req, res) => {
 
     const token = createToken(user);
 
-    res.json({
+    return res.json({
       message: "Đăng nhập thành công!",
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        displayName: user.displayName,
-        color: user.userColor,
-      },
+      user: buildSafeUser(user),
     });
   } catch (error) {
     console.error("Lỗi đăng nhập:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Lỗi server!",
     });
   }
@@ -282,11 +308,13 @@ exports.googleLogin = async (req, res) => {
     const email = payload.email;
     const displayName = payload.name || email.split("@")[0];
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({
+      email,
+    });
 
     if (!user) {
       user = new User({
-        username: email.split("@")[0] + "_" + Math.floor(Math.random() * 10000),
+        username: `${email.split("@")[0]}_${Math.floor(Math.random() * 10000)}`,
         email,
         googleId,
         displayName,
@@ -308,20 +336,15 @@ exports.googleLogin = async (req, res) => {
 
     const token = createToken(user);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Đăng nhập Google thành công!",
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        displayName: user.displayName,
-        color: user.userColor,
-      },
+      user: buildSafeUser(user),
     });
   } catch (error) {
     console.error("Lỗi đăng nhập Google:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Xác thực Google thất bại!",
     });
   }
@@ -337,7 +360,9 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -349,6 +374,7 @@ exports.forgotPassword = async (req, res) => {
 
     user.resetPasswordOtp = otp;
     user.resetPasswordOtpExpires = Date.now() + 15 * 60 * 1000;
+
     await user.save();
 
     res.json({
@@ -368,7 +394,8 @@ exports.forgotPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi quên mật khẩu:", error.response?.data || error.message);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Lỗi hệ thống khi gửi email!",
     });
   }
@@ -393,7 +420,9 @@ exports.resetPassword = async (req, res) => {
     const user = await User.findOne({
       email: email.trim().toLowerCase(),
       resetPasswordOtp: otp.trim(),
-      resetPasswordOtpExpires: { $gt: Date.now() },
+      resetPasswordOtpExpires: {
+        $gt: Date.now(),
+      },
     });
 
     if (!user) {
@@ -403,18 +432,21 @@ exports.resetPassword = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
+
     user.password = await bcrypt.hash(newPassword, salt);
     user.isVerified = true;
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
+
     await user.save();
 
-    res.json({
+    return res.json({
       message: "Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay.",
     });
   } catch (error) {
     console.error("Lỗi đặt lại mật khẩu:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Lỗi hệ thống!",
     });
   }

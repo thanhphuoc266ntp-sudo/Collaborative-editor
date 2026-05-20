@@ -10,37 +10,45 @@ const Login = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const getUserId = (user) => {
-    return user?._id || user?.id || user?.userId;
+  const saveLoginData = (data) => {
+    const token = data?.token || data?.accessToken || data?.authToken;
+    const user = data?.user || data?.data?.user || {};
+
+    if (!token) {
+      throw new Error("Backend không trả về token.");
+    }
+
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+
+    if (user.email) {
+      localStorage.setItem("userEmail", user.email);
+      localStorage.setItem("email", user.email);
+    }
+
+    if (user.name || user.displayName || user.fullName || user.username) {
+      localStorage.setItem(
+        "userName",
+        user.name || user.displayName || user.fullName || user.username,
+      );
+    }
   };
 
-  const createDocumentAndOpen = async (user) => {
+  const goAfterLogin = () => {
     const redirectPath = localStorage.getItem("redirectAfterLogin");
-    const lastEditorPath = localStorage.getItem("lastEditorPath");
 
-    if (redirectPath && redirectPath.startsWith("/editor/")) {
-      localStorage.removeItem("redirectAfterLogin");
-      navigate(redirectPath);
+    localStorage.removeItem("redirectAfterLogin");
+
+    if (
+      redirectPath &&
+      redirectPath.startsWith("/editor/") &&
+      !redirectPath.includes("undefined")
+    ) {
+      navigate(redirectPath, { replace: true });
       return;
     }
 
-    if (lastEditorPath && lastEditorPath.startsWith("/editor/")) {
-      navigate(lastEditorPath);
-      return;
-    }
-
-    const userId = getUserId(user);
-
-    if (!userId) {
-      throw new Error("Không tìm thấy userId để tạo tài liệu");
-    }
-
-    const createDocRes = await API.post("/documents", {
-      userId,
-      title: "Tài liệu không tên",
-    });
-
-    navigate(`/editor/${createDocRes.data.documentId}`);
+    navigate("/editor", { replace: true });
   };
 
   const handleChange = (e) => {
@@ -71,10 +79,8 @@ const Login = () => {
         password: formData.password,
       });
 
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
-
-      await createDocumentAndOpen(response.data.user);
+      saveLoginData(response.data);
+      goAfterLogin();
     } catch (error) {
       setErrorMsg(
         error.response?.data?.message ||
@@ -91,14 +97,12 @@ const Login = () => {
       setIsLoading(true);
       setErrorMsg("");
 
-      const res = await API.post("/auth/google-login", {
+      const response = await API.post("/auth/google-login", {
         idToken: credentialResponse.credential,
       });
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-
-      await createDocumentAndOpen(res.data.user);
+      saveLoginData(response.data);
+      goAfterLogin();
     } catch (error) {
       setErrorMsg(
         error.response?.data?.message ||

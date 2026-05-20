@@ -3,24 +3,43 @@ import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import TiptapEditor from "./TiptapEditor";
 
+const isValidMongoId = (id) => {
+  return /^[a-f\d]{24}$/i.test(String(id || ""));
+};
+
 const EditorComponent = ({ documentId }) => {
   const [status, setStatus] = useState("Đang kết nối...");
 
+  const collabUrl = import.meta.env.VITE_COLLAB_URL;
+  const hasValidDocumentId = isValidMongoId(documentId);
+  const canConnect = Boolean(hasValidDocumentId && collabUrl);
+
   const ydoc = useMemo(() => {
+    if (!canConnect) return null;
     return new Y.Doc();
-  }, [documentId]);
+  }, [canConnect, documentId]);
 
   const provider = useMemo(() => {
-    if (!documentId) return null;
+    if (!canConnect || !ydoc) return null;
 
     return new HocuspocusProvider({
-      url: import.meta.env.VITE_COLLAB_URL,
+      url: collabUrl,
       name: documentId,
       document: ydoc,
     });
-  }, [documentId, ydoc]);
+  }, [canConnect, collabUrl, documentId, ydoc]);
 
   useEffect(() => {
+    if (!hasValidDocumentId) {
+      setStatus("Chưa mở tài liệu");
+      return;
+    }
+
+    if (!collabUrl) {
+      setStatus("Thiếu cấu hình realtime");
+      return;
+    }
+
     if (!provider) return;
 
     const handleConnect = () => {
@@ -35,29 +54,49 @@ const EditorComponent = ({ documentId }) => {
       setStatus("Mất kết nối");
     };
 
+    const handleAuthenticationFailed = () => {
+      setStatus("Lỗi xác thực realtime");
+    };
+
     provider.on("connect", handleConnect);
     provider.on("synced", handleSynced);
     provider.on("disconnect", handleDisconnect);
+    provider.on("authenticationFailed", handleAuthenticationFailed);
 
     return () => {
       provider.off("connect", handleConnect);
       provider.off("synced", handleSynced);
       provider.off("disconnect", handleDisconnect);
+      provider.off("authenticationFailed", handleAuthenticationFailed);
       provider.destroy();
     };
-  }, [provider]);
+  }, [provider, hasValidDocumentId, collabUrl]);
 
   useEffect(() => {
     return () => {
-      ydoc.destroy();
+      if (ydoc) {
+        ydoc.destroy();
+      }
     };
   }, [ydoc]);
 
-  if (!documentId) {
-    return <div className="editor-loading">Không tìm thấy tài liệu</div>;
+  if (!hasValidDocumentId) {
+    return <div className="editor-loading">Không tìm thấy tài liệu hợp lệ</div>;
   }
 
-  return <TiptapEditor ydoc={ydoc} status={status} />;
+  if (!collabUrl) {
+    return (
+      <div className="editor-loading">
+        Thiếu biến môi trường VITE_COLLAB_URL
+      </div>
+    );
+  }
+
+  if (!ydoc || !provider) {
+    return <div className="editor-loading">Đang khởi tạo editor...</div>;
+  }
+
+  return <TiptapEditor ydoc={ydoc} provider={provider} status={status} />;
 };
 
 export default EditorComponent;

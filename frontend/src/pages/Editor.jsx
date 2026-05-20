@@ -42,6 +42,10 @@ const PROJECT_FOLDERS = [
   },
 ];
 
+const isValidMongoId = (id) => {
+  return /^[a-f\d]{24}$/i.test(String(id || ""));
+};
+
 function Editor() {
   const { documentId: documentIdFromUrl } = useParams();
   const navigate = useNavigate();
@@ -56,10 +60,16 @@ function Editor() {
     useState(false);
   const [saveStatus, setSaveStatus] = useState("Đã lưu trên đám mây");
 
+  const hasValidDocumentId = isValidMongoId(documentIdFromUrl);
+  const activeDocumentId = hasValidDocumentId ? documentIdFromUrl : null;
+
+  const userName = localStorage.getItem("userName");
   const userEmail =
-    localStorage.getItem("email") ||
     localStorage.getItem("userEmail") ||
-    "user@gmail.com";
+    localStorage.getItem("email") ||
+    "Chưa xác định";
+
+  const displayUser = userName || userEmail;
 
   const selectedFolder = useMemo(() => {
     return (
@@ -88,6 +98,8 @@ function Editor() {
       setSharedDocuments(Array.isArray(sharedDocs) ? sharedDocs : []);
     } catch (error) {
       console.error("Lỗi tải danh sách tài liệu:", error);
+      setDocuments([]);
+      setSharedDocuments([]);
     } finally {
       setIsLoadingDocuments(false);
     }
@@ -97,6 +109,15 @@ function Editor() {
     if (!documentIdFromUrl) {
       setCurrentDocument(null);
       setTitle("");
+      setSaveStatus("Đã lưu trên đám mây");
+      return;
+    }
+
+    if (!hasValidDocumentId) {
+      setCurrentDocument(null);
+      setTitle("");
+      setSaveStatus("Đã lưu trên đám mây");
+      navigate("/editor", { replace: true });
       return;
     }
 
@@ -105,18 +126,24 @@ function Editor() {
 
       const doc = await getDocumentById(documentIdFromUrl);
 
-      setCurrentDocument(doc);
-      setTitle(doc?.title || "Tài liệu không tên");
+      if (!doc || !isValidMongoId(doc._id || doc.id)) {
+        throw new Error("Tài liệu trả về không hợp lệ.");
+      }
 
-      if (doc?.folderId) {
+      setCurrentDocument(doc);
+      setTitle(doc.title || "Tài liệu không tên");
+      setSaveStatus("Đã lưu trên đám mây");
+
+      if (doc.folderId) {
         setSelectedFolderId(doc.folderId);
       }
     } catch (error) {
       console.error("Lỗi tải tài liệu hiện tại:", error);
       setCurrentDocument(null);
       setTitle("");
+      setSaveStatus("Lỗi tải tài liệu");
       alert("Không tìm thấy tài liệu hoặc bạn không có quyền truy cập.");
-      navigate("/editor");
+      navigate("/editor", { replace: true });
     } finally {
       setIsLoadingCurrentDocument(false);
     }
@@ -140,21 +167,39 @@ function Editor() {
         folderId,
       });
 
+      const newDocumentId = newDocument?._id || newDocument?.id;
+
+      if (!isValidMongoId(newDocumentId)) {
+        throw new Error("Backend không trả về _id hợp lệ khi tạo tài liệu.");
+      }
+
       await loadDocuments();
 
-      navigate(`/editor/${newDocument._id}`);
+      navigate(`/editor/${newDocumentId}`);
     } catch (error) {
       console.error("Lỗi tạo tài liệu:", error);
-      alert("Không thể tạo tài liệu mới.");
+      alert(
+        "Không thể tạo tài liệu mới. Vui lòng kiểm tra backend hoặc database.",
+      );
     }
   };
 
   const handleOpenDocument = (documentId) => {
+    if (!isValidMongoId(documentId)) {
+      alert("Mã tài liệu không hợp lệ.");
+      return;
+    }
+
     navigate(`/editor/${documentId}`);
   };
 
   const handleDeleteDocument = async (event, documentId) => {
     event.stopPropagation();
+
+    if (!isValidMongoId(documentId)) {
+      alert("Mã tài liệu không hợp lệ.");
+      return;
+    }
 
     const ok = window.confirm("Bạn có chắc muốn xóa tài liệu này không?");
 
@@ -164,8 +209,8 @@ function Editor() {
       await deleteDocument(documentId);
       await loadDocuments();
 
-      if (documentIdFromUrl === documentId) {
-        navigate("/editor");
+      if (activeDocumentId === documentId) {
+        navigate("/editor", { replace: true });
       }
     } catch (error) {
       console.error("Lỗi xóa tài liệu:", error);
@@ -176,13 +221,18 @@ function Editor() {
   const handleChangeDocumentFolder = async (event, documentId) => {
     event.stopPropagation();
 
+    if (!isValidMongoId(documentId)) {
+      alert("Mã tài liệu không hợp lệ.");
+      return;
+    }
+
     const newFolderId = event.target.value;
 
     try {
       await updateDocumentFolder(documentId, newFolderId);
       await loadDocuments();
 
-      if (documentIdFromUrl === documentId) {
+      if (activeDocumentId === documentId) {
         setCurrentDocument((prev) => ({
           ...prev,
           folderId: newFolderId,
@@ -197,7 +247,7 @@ function Editor() {
   };
 
   const handleTitleBlur = async () => {
-    if (!documentIdFromUrl) return;
+    if (!activeDocumentId) return;
 
     const nextTitle = title.trim() || "Tài liệu không tên";
 
@@ -207,7 +257,7 @@ function Editor() {
       setSaveStatus("Đang lưu tên tài liệu...");
 
       const updatedDocument = await updateDocumentTitle(
-        documentIdFromUrl,
+        activeDocumentId,
         nextTitle,
       );
 
@@ -224,12 +274,12 @@ function Editor() {
   };
 
   const handleCopyShareLink = async () => {
-    if (!documentIdFromUrl) {
+    if (!activeDocumentId) {
       alert("Bạn cần mở hoặc tạo tài liệu trước khi chia sẻ.");
       return;
     }
 
-    const link = `${window.location.origin}/editor/${documentIdFromUrl}`;
+    const link = `${window.location.origin}/editor/${activeDocumentId}`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -242,9 +292,14 @@ function Editor() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("authToken");
     localStorage.removeItem("email");
     localStorage.removeItem("userEmail");
-    navigate("/login");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("redirectAfterLogin");
+
+    navigate("/login", { replace: true });
   };
 
   const scrollToSharedDocuments = () => {
@@ -281,7 +336,7 @@ function Editor() {
 
             <button
               className={
-                !documentIdFromUrl
+                !activeDocumentId
                   ? "sidebar-nav-item active"
                   : "sidebar-nav-item"
               }
@@ -314,7 +369,7 @@ function Editor() {
           <CurrentDocumentPanel
             documents={filteredDocuments}
             selectedFolder={selectedFolder}
-            documentIdFromUrl={documentIdFromUrl}
+            documentIdFromUrl={activeDocumentId}
             isLoadingDocuments={isLoadingDocuments}
             onOpenDocument={handleOpenDocument}
             onDeleteDocument={handleDeleteDocument}
@@ -323,7 +378,7 @@ function Editor() {
 
           <SharedDocumentsPanel
             sharedDocuments={sharedDocuments}
-            documentIdFromUrl={documentIdFromUrl}
+            documentIdFromUrl={activeDocumentId}
             onOpenDocument={handleOpenDocument}
           />
         </aside>
@@ -331,7 +386,7 @@ function Editor() {
         <main className="editor-main">
           <header className="editor-topbar">
             <div className="document-title-area">
-              {documentIdFromUrl ? (
+              {activeDocumentId ? (
                 <input
                   className="document-title-input"
                   value={title}
@@ -355,9 +410,9 @@ function Editor() {
 
               <div className="user-badge">
                 <div className="user-avatar">
-                  {userEmail.charAt(0).toUpperCase()}
+                  {displayUser.charAt(0).toUpperCase()}
                 </div>
-                <span>{userEmail}</span>
+                <span>{displayUser}</span>
               </div>
 
               <button className="logout-button" onClick={handleLogout}>
@@ -367,7 +422,7 @@ function Editor() {
           </header>
 
           <section className="editor-content">
-            {!documentIdFromUrl ? (
+            {!activeDocumentId ? (
               <div className="empty-editor-state">
                 <div className="empty-editor-icon">📄</div>
                 <h2>Chưa mở tài liệu</h2>
@@ -383,7 +438,7 @@ function Editor() {
                 <p>Vui lòng chờ trong giây lát.</p>
               </div>
             ) : (
-              <EditorComponent documentId={documentIdFromUrl} />
+              <EditorComponent documentId={activeDocumentId} />
             )}
           </section>
         </main>

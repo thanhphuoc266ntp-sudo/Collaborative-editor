@@ -10,6 +10,10 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+const isValidMongoId = (id) => {
+  return /^[a-f\d]{24}$/i.test(String(id || ""));
+};
+
 api.interceptors.request.use(
   (config) => {
     const token =
@@ -44,7 +48,14 @@ export const createDocument = async (payload = {}) => {
     folderId: payload.folderId || "web-project",
   });
 
-  return extractDocument(res.data);
+  const document = extractDocument(res.data);
+  const documentId = document?._id || document?.id;
+
+  if (!isValidMongoId(documentId)) {
+    throw new Error("Backend không trả về _id hợp lệ khi tạo tài liệu.");
+  }
+
+  return document;
 };
 
 export const getMyDocuments = async () => {
@@ -58,8 +69,8 @@ export const getSharedDocuments = async () => {
 };
 
 export const getDocumentById = async (documentId) => {
-  if (!documentId) {
-    throw new Error("Thiếu documentId.");
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
   }
 
   const res = await api.get(`/documents/${documentId}`);
@@ -67,8 +78,8 @@ export const getDocumentById = async (documentId) => {
 };
 
 export const updateDocumentTitle = async (documentId, title) => {
-  if (!documentId) {
-    throw new Error("Thiếu documentId.");
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
   }
 
   const res = await api.put(`/documents/${documentId}/title`, {
@@ -79,8 +90,8 @@ export const updateDocumentTitle = async (documentId, title) => {
 };
 
 export const updateDocumentFolder = async (documentId, folderId) => {
-  if (!documentId) {
-    throw new Error("Thiếu documentId.");
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
   }
 
   const res = await api.put(`/documents/${documentId}/folder`, {
@@ -91,8 +102,8 @@ export const updateDocumentFolder = async (documentId, folderId) => {
 };
 
 export const shareDocument = async (documentId, email, role = "viewer") => {
-  if (!documentId) {
-    throw new Error("Thiếu documentId.");
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
   }
 
   const res = await api.post(`/documents/${documentId}/share`, {
@@ -104,8 +115,8 @@ export const shareDocument = async (documentId, email, role = "viewer") => {
 };
 
 export const deleteDocument = async (documentId) => {
-  if (!documentId) {
-    throw new Error("Thiếu documentId.");
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
   }
 
   const res = await api.delete(`/documents/${documentId}`);
