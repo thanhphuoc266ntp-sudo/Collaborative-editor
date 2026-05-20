@@ -101,6 +101,35 @@ export const updateDocumentFolder = async (documentId, folderId) => {
   return extractDocument(res.data);
 };
 
+export const enableDocumentLinkSharing = async (
+  documentId,
+  role = "viewer",
+) => {
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
+  }
+
+  const res = await api.put(`/documents/${documentId}/link-sharing`, {
+    enabled: true,
+    role: role === "editor" ? "editor" : "viewer",
+  });
+
+  return extractDocument(res.data);
+};
+
+export const disableDocumentLinkSharing = async (documentId) => {
+  if (!isValidMongoId(documentId)) {
+    throw new Error("documentId không hợp lệ.");
+  }
+
+  const res = await api.put(`/documents/${documentId}/link-sharing`, {
+    enabled: false,
+    role: "viewer",
+  });
+
+  return extractDocument(res.data);
+};
+
 export const shareDocument = async (documentId, email, role = "viewer") => {
   if (!isValidMongoId(documentId)) {
     throw new Error("documentId không hợp lệ.");

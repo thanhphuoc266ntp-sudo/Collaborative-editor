@@ -7,12 +7,12 @@ import SharedDocumentsPanel from "../components/editor/SharedDocumentsPanel";
 import {
   createDocument,
   deleteDocument,
+  enableDocumentLinkSharing,
   getDocumentById,
   getMyDocuments,
   getSharedDocuments,
   updateDocumentFolder,
   updateDocumentTitle,
-  shareDocument,
 } from "../services/api";
 import editorPageStyles from "../styles/editorPageStyles";
 
@@ -294,42 +294,32 @@ function Editor() {
       return;
     }
 
-    const email = window.prompt("Nhập email tài khoản người bạn muốn chia sẻ:");
-
-    if (!email || !email.trim()) {
-      return;
-    }
-
     const roleInput = window.prompt(
-      "Nhập quyền cho người nhận: viewer hoặc editor",
-      "editor",
+      "Người có link được quyền gì? Nhập viewer hoặc editor",
+      "viewer",
     );
 
-    const role = roleInput === "viewer" ? "viewer" : "editor";
+    const role = roleInput === "editor" ? "editor" : "viewer";
 
     try {
-      await shareDocument(activeDocumentId, email.trim(), role);
+      await enableDocumentLinkSharing(activeDocumentId, role);
 
       const link = `${window.location.origin}/editor/${activeDocumentId}`;
 
       try {
         await navigator.clipboard.writeText(link);
+        alert(`Đã bật chia sẻ bằng link với quyền ${role}. Link đã được copy.`);
       } catch (copyError) {
         console.error("Không thể copy link tự động:", copyError);
+        window.prompt("Copy link chia sẻ:", link);
       }
-
-      await loadDocuments();
-
-      alert(
-        `Đã chia sẻ tài liệu cho ${email.trim()} với quyền ${role}. Link tài liệu cũng đã được copy.`,
-      );
     } catch (error) {
-      console.error("Lỗi chia sẻ tài liệu:", error);
+      console.error("Lỗi bật chia sẻ bằng link:", error);
 
       alert(
         error.response?.data?.message ||
           error.message ||
-          "Không thể chia sẻ tài liệu.",
+          "Không thể bật chia sẻ bằng link.",
       );
     }
   };

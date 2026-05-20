@@ -18,6 +18,23 @@ const collaboratorSchema = new mongoose.Schema(
   },
 );
 
+const shareLinkSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    role: {
+      type: String,
+      enum: ["viewer", "editor"],
+      default: "viewer",
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const documentSchema = new mongoose.Schema(
   {
     title: {
@@ -43,6 +60,14 @@ const documentSchema = new mongoose.Schema(
       enum: ["web-project", "crypto", "notes"],
       default: "web-project",
       index: true,
+    },
+
+    shareLink: {
+      type: shareLinkSchema,
+      default: () => ({
+        enabled: false,
+        role: "viewer",
+      }),
     },
 
     yState: {

@@ -29,34 +29,75 @@ const normalizeFolderId = (folderId) => {
   return "web-project";
 };
 
+const normalizeRole = (role) => {
+  return role === "editor" ? "editor" : "viewer";
+};
+
 const getDocumentOwnerId = (document) => {
   return String(document.owner?._id || document.owner);
 };
 
-const canAccessDocument = (document, userId) => {
-  if (!document || !userId) return false;
+const isOwner = (document, userId) => {
+  return getDocumentOwnerId(document) === String(userId);
+};
 
-  if (getDocumentOwnerId(document) === String(userId)) {
-    return true;
-  }
-
-  return document.collaborators.some((collaborator) => {
+const findCollaborator = (document, userId) => {
+  return document.collaborators.find((collaborator) => {
     const collaboratorId = String(collaborator.user?._id || collaborator.user);
     return collaboratorId === String(userId);
   });
 };
 
-const canEditDocument = (document, userId) => {
+const canAccessDocument = (document, userId) => {
   if (!document || !userId) return false;
 
-  if (getDocumentOwnerId(document) === String(userId)) {
+  if (isOwner(document, userId)) {
     return true;
   }
 
-  return document.collaborators.some((collaborator) => {
-    const collaboratorId = String(collaborator.user?._id || collaborator.user);
-    return collaboratorId === String(userId) && collaborator.role === "editor";
+  return Boolean(findCollaborator(document, userId));
+};
+
+const canEditDocument = (document, userId) => {
+  if (!document || !userId) return false;
+
+  if (isOwner(document, userId)) {
+    return true;
+  }
+
+  const collaborator = findCollaborator(document, userId);
+
+  return Boolean(collaborator && collaborator.role === "editor");
+};
+
+const addCollaboratorIfMissing = async (document, userId, role = "viewer") => {
+  if (!document || !userId) return document;
+
+  if (isOwner(document, userId)) {
+    return document;
+  }
+
+  const existedCollaborator = findCollaborator(document, userId);
+
+  if (existedCollaborator) {
+    return document;
+  }
+
+  document.collaborators.push({
+    user: userId,
+    role: normalizeRole(role),
   });
+
+  await document.save();
+
+  return document;
+};
+
+const getSafeDocumentById = async (documentId) => {
+  return Document.findById(documentId)
+    .select("-yState")
+    .populate("owner", "name email username displayName")
+    .populate("collaborators.user", "name email username displayName");
 };
 
 const createNewDocument = async (req, res) => {
@@ -75,11 +116,14 @@ const createNewDocument = async (req, res) => {
       title: normalizeTitle(title),
       owner: userId,
       folderId: normalizeFolderId(folderId),
+      collaborators: [],
+      shareLink: {
+        enabled: false,
+        role: "viewer",
+      },
     });
 
-    const safeDocument = await Document.findById(document._id)
-      .select("-yState")
-      .populate("owner", "name email");
+    const safeDocument = await getSafeDocumentById(document._id);
 
     return res.status(201).json({
       message: "Tạo tài liệu thành công.",
@@ -87,6 +131,14 @@ const createNewDocument = async (req, res) => {
     });
   } catch (error) {
     console.error("Create document error:", error);
+
+    if (error.code === 11000) {
+      return res.status(500).json({
+        message:
+          "MongoDB đang còn unique index cũ. Hãy xóa index documentId_1 trong collection documents.",
+        detail: error.message,
+      });
+    }
 
     return res.status(500).json({
       message: error.message || "Lỗi server khi tạo tài liệu.",
@@ -112,7 +164,7 @@ router.get("/", auth, async (req, res) => {
       owner: userId,
     })
       .select("-yState")
-      .populate("owner", "name email")
+      .populate("owner", "name email username displayName")
       .sort({ updatedAt: -1 });
 
     return res.json({
@@ -144,8 +196,8 @@ router.get("/shared-with-me", auth, async (req, res) => {
       },
     })
       .select("-yState")
-      .populate("owner", "name email")
-      .populate("collaborators.user", "name email")
+      .populate("owner", "name email username displayName")
+      .populate("collaborators.user", "name email username displayName")
       .sort({ updatedAt: -1 });
 
     return res.json({
@@ -156,6 +208,62 @@ router.get("/shared-with-me", auth, async (req, res) => {
 
     return res.status(500).json({
       message: error.message || "Lỗi server khi lấy tài liệu được chia sẻ.",
+    });
+  }
+});
+
+router.put("/:documentId/link-sharing", auth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { documentId } = req.params;
+    const { enabled = true, role = "viewer" } = req.body;
+
+    if (!userId || !isValidObjectId(userId)) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
+
+    if (!isValidObjectId(documentId)) {
+      return res.status(400).json({
+        message: "documentId không hợp lệ.",
+      });
+    }
+
+    const document = await Document.findById(documentId);
+
+    if (!document) {
+      return res.status(404).json({
+        message: "Không tìm thấy tài liệu.",
+      });
+    }
+
+    if (!isOwner(document, userId)) {
+      return res.status(403).json({
+        message: "Chỉ chủ sở hữu mới được bật chia sẻ bằng link.",
+      });
+    }
+
+    document.shareLink = {
+      enabled: Boolean(enabled),
+      role: normalizeRole(role),
+    };
+
+    await document.save();
+
+    const safeDocument = await getSafeDocumentById(document._id);
+
+    return res.json({
+      message: Boolean(enabled)
+        ? "Đã bật chia sẻ bằng link."
+        : "Đã tắt chia sẻ bằng link.",
+      document: safeDocument,
+    });
+  } catch (error) {
+    console.error("Update link sharing error:", error);
+
+    return res.status(500).json({
+      message: error.message || "Lỗi server khi cập nhật chia sẻ bằng link.",
     });
   }
 });
@@ -177,10 +285,9 @@ router.get("/:documentId", auth, async (req, res) => {
       });
     }
 
-    const document = await Document.findById(documentId)
-      .select("-yState")
-      .populate("owner", "name email")
-      .populate("collaborators.user", "name email");
+    let document = await Document.findById(documentId)
+      .populate("owner", "name email username displayName")
+      .populate("collaborators.user", "name email username displayName");
 
     if (!document) {
       return res.status(404).json({
@@ -189,13 +296,28 @@ router.get("/:documentId", auth, async (req, res) => {
     }
 
     if (!canAccessDocument(document, userId)) {
-      return res.status(403).json({
-        message: "Bạn không có quyền truy cập tài liệu này.",
-      });
+      if (document.shareLink?.enabled) {
+        await addCollaboratorIfMissing(
+          document,
+          userId,
+          document.shareLink.role || "viewer",
+        );
+
+        document = await Document.findById(documentId)
+          .populate("owner", "name email username displayName")
+          .populate("collaborators.user", "name email username displayName");
+      } else {
+        return res.status(403).json({
+          message: "Bạn không có quyền truy cập tài liệu này.",
+        });
+      }
     }
 
+    const safeDocument = document.toObject();
+    delete safeDocument.yState;
+
     return res.json({
-      document,
+      document: safeDocument,
     });
   } catch (error) {
     console.error("Get document by id error:", error);
@@ -241,10 +363,7 @@ router.put("/:documentId/title", auth, async (req, res) => {
     document.title = normalizeTitle(title);
     await document.save();
 
-    const safeDocument = await Document.findById(document._id)
-      .select("-yState")
-      .populate("owner", "name email")
-      .populate("collaborators.user", "name email");
+    const safeDocument = await getSafeDocumentById(document._id);
 
     return res.json({
       message: "Đổi tên tài liệu thành công.",
@@ -285,7 +404,7 @@ router.put("/:documentId/folder", auth, async (req, res) => {
       });
     }
 
-    if (getDocumentOwnerId(document) !== String(userId)) {
+    if (!isOwner(document, userId)) {
       return res.status(403).json({
         message: "Chỉ chủ sở hữu mới được chuyển thư mục tài liệu.",
       });
@@ -294,10 +413,7 @@ router.put("/:documentId/folder", auth, async (req, res) => {
     document.folderId = normalizeFolderId(folderId);
     await document.save();
 
-    const safeDocument = await Document.findById(document._id)
-      .select("-yState")
-      .populate("owner", "name email")
-      .populate("collaborators.user", "name email");
+    const safeDocument = await getSafeDocumentById(document._id);
 
     return res.json({
       message: "Cập nhật thư mục thành công.",
@@ -344,7 +460,7 @@ router.post("/:documentId/share", auth, async (req, res) => {
       });
     }
 
-    if (getDocumentOwnerId(document) !== String(userId)) {
+    if (!isOwner(document, userId)) {
       return res.status(403).json({
         message: "Chỉ chủ sở hữu mới được chia sẻ tài liệu.",
       });
@@ -366,11 +482,8 @@ router.post("/:documentId/share", auth, async (req, res) => {
       });
     }
 
-    const nextRole = role === "editor" ? "editor" : "viewer";
-
-    const existedCollaborator = document.collaborators.find((collaborator) => {
-      return String(collaborator.user) === String(targetUser._id);
-    });
+    const nextRole = normalizeRole(role);
+    const existedCollaborator = findCollaborator(document, targetUser._id);
 
     if (existedCollaborator) {
       existedCollaborator.role = nextRole;
@@ -383,10 +496,7 @@ router.post("/:documentId/share", auth, async (req, res) => {
 
     await document.save();
 
-    const safeDocument = await Document.findById(document._id)
-      .select("-yState")
-      .populate("owner", "name email")
-      .populate("collaborators.user", "name email");
+    const safeDocument = await getSafeDocumentById(document._id);
 
     return res.json({
       message: "Chia sẻ tài liệu thành công.",
@@ -426,7 +536,7 @@ router.delete("/:documentId", auth, async (req, res) => {
       });
     }
 
-    if (getDocumentOwnerId(document) !== String(userId)) {
+    if (!isOwner(document, userId)) {
       return res.status(403).json({
         message: "Chỉ chủ sở hữu mới được xóa tài liệu.",
       });
