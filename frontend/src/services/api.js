@@ -10,62 +10,106 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+api.interceptors.request.use(
+  (config) => {
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("authToken");
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  return config;
-});
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  },
+);
 
-const getDataArray = (data, key) => {
+const extractDocument = (data) => {
+  if (data && data.document) return data.document;
+  return data;
+};
+
+const extractDocuments = (data) => {
   if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data[key])) return data[key];
+  if (data && Array.isArray(data.documents)) return data.documents;
+  if (data && Array.isArray(data.data)) return data.data;
   return [];
 };
 
 export const createDocument = async (payload = {}) => {
-  const res = await api.post("/documents", payload);
-  return res.data.document || res.data;
+  const res = await api.post("/documents", {
+    title: payload.title || "Tài liệu không tên",
+    folderId: payload.folderId || "web-project",
+  });
+
+  return extractDocument(res.data);
 };
 
 export const getMyDocuments = async () => {
   const res = await api.get("/documents");
-  return getDataArray(res.data, "documents");
+  return extractDocuments(res.data);
 };
 
 export const getSharedDocuments = async () => {
   const res = await api.get("/documents/shared-with-me");
-  return getDataArray(res.data, "documents");
+  return extractDocuments(res.data);
 };
 
 export const getDocumentById = async (documentId) => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.get(`/documents/${documentId}`);
-  return res.data.document || res.data;
+  return extractDocument(res.data);
 };
 
 export const updateDocumentTitle = async (documentId, title) => {
-  const res = await api.put(`/documents/${documentId}/title`, { title });
-  return res.data.document || res.data;
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
+  const res = await api.put(`/documents/${documentId}/title`, {
+    title: title || "Tài liệu không tên",
+  });
+
+  return extractDocument(res.data);
 };
 
 export const updateDocumentFolder = async (documentId, folderId) => {
-  const res = await api.put(`/documents/${documentId}/folder`, { folderId });
-  return res.data.document || res.data;
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
+  const res = await api.put(`/documents/${documentId}/folder`, {
+    folderId: folderId || "web-project",
+  });
+
+  return extractDocument(res.data);
 };
 
 export const shareDocument = async (documentId, email, role = "viewer") => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.post(`/documents/${documentId}/share`, {
     email,
     role,
   });
 
-  return res.data.document || res.data;
+  return extractDocument(res.data);
 };
 
 export const deleteDocument = async (documentId) => {
+  if (!documentId) {
+    throw new Error("Thiếu documentId.");
+  }
+
   const res = await api.delete(`/documents/${documentId}`);
   return res.data;
 };
