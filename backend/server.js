@@ -3,8 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-const { Server: SocketIOServer } = require("socket.io");
-const Y = require("yjs");
+
 const connectDB = require("./config/db");
 const Document = require("./models/Document");
 
@@ -38,24 +37,120 @@ const server = http.createServer(app);
 const startRealtimeServer = async () => {
   const { Hocuspocus } = await import("@hocuspocus/server");
   const { default: crossws } = await import("crossws/adapters/node");
+  const Y = await import("yjs");
+
+  const saveTimers = new Map();
+
+  const saveYjsDocument = async (
+    documentName,
+    ydoc,
+    reason = "ydoc-update",
+  ) => {
+    if (!documentName || !ydoc) {
+      console.log("⚠️ Thiếu documentName hoặc ydoc, bỏ qua lưu");
+      return;
+    }
+
+    const state = Y.encodeStateAsUpdate(ydoc);
+    const nextBuffer = Buffer.from(state);
+
+    const oldDocument = await Document.findOne({
+      documentId: documentName,
+    });
+
+    const oldLength = oldDocument?.yState ? oldDocument.yState.length : 0;
+    const newLength = nextBuffer.length;
+
+    console.log(
+      `💾 Chuẩn bị lưu: ${documentName}, old=${oldLength}, new=${newLength}, reason=${reason}`,
+    );
+
+    if (oldLength > 0 && newLength <= 56) {
+      console.log(
+        `⚠️ Bỏ qua lưu state rỗng/quá nhỏ: ${documentName}, old=${oldLength}, new=${newLength}`,
+      );
+      return;
+    }
+
+    if (oldLength > 120 && newLength < oldLength * 0.5) {
+      console.log(
+        `⚠️ Bỏ qua lưu vì state mới nhỏ bất thường: ${documentName}, old=${oldLength}, new=${newLength}`,
+      );
+      return;
+    }
+
+    const saved = await Document.findOneAndUpdate(
+      {
+        documentId: documentName,
+      },
+      {
+        $set: {
+          yState: nextBuffer,
+        },
+        $setOnInsert: {
+          documentId: documentName,
+          title: "Tài liệu không tên",
+          content: "",
+          owner: null,
+          folderId: "root",
+          collaborators: [],
+        },
+      },
+      {
+        upsert: true,
+        returnDocument: "after",
+      },
+    );
+
+    console.log(
+      `✅ Đã lưu yState: ${saved.documentId}, buffer length: ${
+        saved.yState ? saved.yState.length : 0
+      }, reason=${reason}`,
+    );
+  };
+
+  const scheduleSave = (documentName, ydoc) => {
+    if (!documentName || !ydoc) return;
+
+    if (saveTimers.has(documentName)) {
+      clearTimeout(saveTimers.get(documentName));
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        await saveYjsDocument(documentName, ydoc, "ydoc-update");
+      } catch (error) {
+        console.error("❌ Lỗi lưu yState:", error);
+      } finally {
+        saveTimers.delete(documentName);
+      }
+    }, 500);
+
+    saveTimers.set(documentName, timer);
+  };
 
   const hocuspocus = new Hocuspocus({
     name: "collaborative-editor-hocuspocus",
 
     async onConnect(data) {
-      console.log("Hocuspocus client connected:", data.documentName);
+      console.log("🔌 Hocuspocus connected:", data.documentName);
     },
 
     async onDisconnect(data) {
-      console.log("Hocuspocus client disconnected:", data.documentName);
+      console.log("🔌 Hocuspocus disconnected:", data.documentName);
+      console.log(
+        "ℹ️ Không lưu khi disconnect để tránh ghi đè rỗng khi reload",
+      );
     },
 
     async onLoadDocument(data) {
       const documentName = data.documentName;
 
-      console.log("📄 Đang load document:", documentName);
+      console.log("📄 onLoadDocument:", documentName);
 
-      let dbDocument = await Document.findOne({ documentId: documentName });
+      let dbDocument = await Document.findOne({
+        documentId: documentName,
+      });
 
       if (!dbDocument) {
         dbDocument = await Document.create({
@@ -68,51 +163,40 @@ const startRealtimeServer = async () => {
           collaborators: [],
         });
 
-        console.log("🆕 Đã tạo document mới:", documentName);
+        console.log("🆕 Tạo document mới:", documentName);
       }
+
+      const currentLength = dbDocument.yState ? dbDocument.yState.length : 0;
+
+      console.log("📦 yState trong Mongo:", currentLength, "bytes");
 
       const ydoc = new Y.Doc();
 
-      if (dbDocument.yState) {
-        Y.applyUpdate(ydoc, dbDocument.yState);
-        console.log("✅ Đã load yState từ MongoDB:", documentName);
+      if (dbDocument.yState && dbDocument.yState.length > 0) {
+        Y.applyUpdate(ydoc, new Uint8Array(dbDocument.yState));
+        console.log("✅ Đã apply yState:", documentName);
       } else {
-        console.log("ℹ️ Document chưa có yState:", documentName);
+        console.log("ℹ️ Chưa có yState để load:", documentName);
       }
+
+      ydoc.on("update", () => {
+        console.log("✏️ Y.Doc update:", documentName);
+        scheduleSave(documentName, ydoc);
+      });
 
       return ydoc;
     },
 
+    async onChange(data) {
+      console.log("✏️ onChange:", data.documentName);
+      scheduleSave(data.documentName, data.document);
+    },
+
     async onStoreDocument(data) {
-      const documentName = data.documentName;
-      const ydoc = data.document;
-
-      console.log("💾 Đang lưu document:", documentName);
-
-      const state = Y.encodeStateAsUpdate(ydoc);
-
-      await Document.findOneAndUpdate(
-        { documentId: documentName },
-        {
-          $set: {
-            yState: Buffer.from(state),
-          },
-          $setOnInsert: {
-            documentId: documentName,
-            title: "Tài liệu không tên",
-            content: "",
-            owner: null,
-            folderId: "root",
-            collaborators: [],
-          },
-        },
-        {
-          upsert: true,
-          new: true,
-        },
+      console.log(
+        "ℹ️ onStoreDocument fired nhưng không lưu trực tiếp:",
+        data.documentName,
       );
-
-      console.log("✅ Đã lưu yState vào MongoDB:", documentName);
     },
   });
 
@@ -140,7 +224,7 @@ const startRealtimeServer = async () => {
       },
 
       error(peer, error) {
-        console.error("Hocuspocus WebSocket error:", error);
+        console.error("❌ Hocuspocus WebSocket error:", error);
       },
     },
   });
@@ -148,61 +232,14 @@ const startRealtimeServer = async () => {
   server.on("upgrade", (request, socket, head) => {
     if (request.url && request.url.startsWith("/collaboration")) {
       ws.handleUpgrade(request, socket, head);
+      return;
     }
+
+    socket.destroy();
   });
 
   console.log("✅ Hocuspocus realtime server đã sẵn sàng tại /collaboration");
 };
-
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-  },
-});
-
-io.on("connection", (socket) => {
-  console.log("Socket.IO người dùng đã kết nối:", socket.id);
-
-  socket.on("join-document", (documentId) => {
-    if (!documentId) return;
-
-    socket.join(documentId);
-    console.log(`Socket ${socket.id} đã vào phòng ${documentId}`);
-  });
-
-  socket.on("send-changes", ({ documentId, content }) => {
-    if (!documentId) return;
-
-    socket.to(documentId).emit("receive-changes", content);
-  });
-
-  socket.on("save-document", async ({ documentId, content }) => {
-    try {
-      if (!documentId) return;
-
-      await Document.findOneAndUpdate(
-        { documentId },
-        {
-          content: content || "",
-        },
-        {
-          new: true,
-        },
-      );
-
-      socket.to(documentId).emit("document-saved", content);
-      console.log(`Đã lưu tài liệu ${documentId}`);
-    } catch (error) {
-      console.error("Lỗi lưu tài liệu bằng socket:", error);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket.IO người dùng đã ngắt kết nối:", socket.id);
-  });
-});
 
 startRealtimeServer()
   .then(() => {
@@ -211,6 +248,6 @@ startRealtimeServer()
     });
   })
   .catch((error) => {
-    console.error("Không thể khởi động Hocuspocus:", error);
+    console.error("❌ Không thể khởi động Hocuspocus:", error);
     process.exit(1);
   });
