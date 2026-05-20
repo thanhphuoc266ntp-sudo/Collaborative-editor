@@ -143,6 +143,7 @@ function Editor() {
       if (doc.shareLink?.role) {
         setShareRole(doc.shareLink.role === "editor" ? "editor" : "viewer");
       }
+      await loadDocuments();
     } catch (error) {
       console.error("Lỗi tải tài liệu hiện tại:", error);
       setCurrentDocument(null);
