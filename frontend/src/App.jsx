@@ -1,25 +1,19 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
-import Register from "./pages/Register";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login";
-import Editor from "./pages/Editor";
+import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
+import Editor from "./pages/Editor";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/editor" replace />} />
-
-        <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-
         <Route path="/editor" element={<Editor />} />
         <Route path="/editor/:documentId" element={<Editor />} />
-
-        <Route path="*" element={<Navigate to="/editor" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,347 +1,502 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import EditorComponent from "../components/EditorComponent";
 import {
   createDocument,
+  deleteDocument,
   getDocumentById,
   getMyDocuments,
   getSharedDocuments,
+  updateDocumentFolder,
   updateDocumentTitle,
 } from "../services/api";
-import "../styles/editorPageStyles";
+import editorPageStyles from "../styles/editorPageStyles";
 
-const Editor = () => {
+const PROJECT_FOLDERS = [
+  {
+    id: "all",
+    name: "Tất cả tài liệu",
+    icon: "📁",
+    description: "Xem toàn bộ tài liệu của bạn",
+  },
+  {
+    id: "web-project",
+    name: "Đồ án Web",
+    icon: "💻",
+    description: "Tài liệu liên quan đến đồ án",
+  },
+  {
+    id: "crypto",
+    name: "Mật mã học",
+    icon: "🔐",
+    description: "Bài tập và ghi chú môn học",
+  },
+  {
+    id: "notes",
+    name: "Ghi chú",
+    icon: "📝",
+    description: "Ghi chú cá nhân và ý tưởng",
+  },
+];
+
+function Editor() {
+  const { documentId: documentIdFromUrl } = useParams();
   const navigate = useNavigate();
-  const { documentId } = useParams();
 
-  const [currentDocumentId, setCurrentDocumentId] = useState(
-    documentId || null,
-  );
-  const [title, setTitle] = useState("Chưa mở tài liệu");
   const [documents, setDocuments] = useState([]);
   const [sharedDocuments, setSharedDocuments] = useState([]);
-  const [activeMenu, setActiveMenu] = useState("current");
-  const [loading, setLoading] = useState(true);
-  const [titleSaving, setTitleSaving] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState("all");
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const [title, setTitle] = useState("");
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [isLoadingCurrentDocument, setIsLoadingCurrentDocument] =
+    useState(false);
+  const [saveStatus, setSaveStatus] = useState("Đã lưu trên đám mây");
 
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userEmail =
+    localStorage.getItem("email") ||
+    localStorage.getItem("userEmail") ||
+    "user@gmail.com";
 
-  useEffect(() => {
-    if (!token) {
-      localStorage.setItem("redirectAfterLogin", window.location.pathname);
-      navigate("/login");
-      return;
-    }
+  const filteredDocuments = useMemo(() => {
+    if (selectedFolderId === "all") return documents;
 
-    localStorage.setItem("lastEditorPath", window.location.pathname);
-  }, [token, navigate]);
+    return documents.filter((doc) => {
+      const folderId = doc.folderId || "web-project";
+      return folderId === selectedFolderId;
+    });
+  }, [documents, selectedFolderId]);
 
-  useEffect(() => {
-    if (!token) return;
-
-    loadDocuments();
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-
-    const prepareDocument = async () => {
-      try {
-        setLoading(true);
-
-        if (!documentId) {
-          setCurrentDocumentId(null);
-          setTitle("Chưa mở tài liệu");
-          setLoading(false);
-          return;
-        }
-
-        setCurrentDocumentId(documentId);
-
-        const response = await getDocumentById(documentId);
-
-        if (response.success && response.document) {
-          setTitle(response.document.title || "Tài liệu không tên");
-        }
-      } catch (error) {
-        console.error("Lỗi chuẩn bị tài liệu:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    prepareDocument();
-  }, [documentId, token]);
+  const selectedFolder = useMemo(() => {
+    return (
+      PROJECT_FOLDERS.find((folder) => folder.id === selectedFolderId) ||
+      PROJECT_FOLDERS[0]
+    );
+  }, [selectedFolderId]);
 
   const loadDocuments = async () => {
     try {
-      const myDocsResponse = await getMyDocuments();
-      const sharedResponse = await getSharedDocuments();
+      setIsLoadingDocuments(true);
 
-      if (myDocsResponse.success) {
-        setDocuments(myDocsResponse.documents || []);
-      }
+      const myDocs = await getMyDocuments();
+      const sharedDocs = await getSharedDocuments();
 
-      if (sharedResponse.success) {
-        setSharedDocuments(sharedResponse.documents || []);
-      }
+      setDocuments(Array.isArray(myDocs) ? myDocs : []);
+      setSharedDocuments(Array.isArray(sharedDocs) ? sharedDocs : []);
     } catch (error) {
       console.error("Lỗi tải danh sách tài liệu:", error);
+    } finally {
+      setIsLoadingDocuments(false);
     }
   };
 
-  const handleCreateDocument = async () => {
-    try {
-      const response = await createDocument("Tài liệu không tên");
-
-      if (response.success) {
-        const newDocument = response.document;
-        const newDocumentId = newDocument.documentId;
-
-        setDocuments((prev) => [newDocument, ...prev]);
-        setCurrentDocumentId(newDocumentId);
-        setTitle(newDocument.title || "Tài liệu không tên");
-
-        navigate(`/editor/${newDocumentId}`);
-      }
-    } catch (error) {
-      console.error("Lỗi tạo tài liệu:", error);
-      alert("Không thể tạo tài liệu mới");
-    }
-  };
-
-  const handleOpenDocument = (docId) => {
-    navigate(`/editor/${docId}`);
-  };
-
-  const handleShare = async () => {
-    if (!currentDocumentId) {
-      alert("Bạn cần mở tài liệu trước khi chia sẻ");
+  const loadCurrentDocument = async () => {
+    if (!documentIdFromUrl) {
+      setCurrentDocument(null);
+      setTitle("");
       return;
     }
 
-    const shareUrl = `${window.location.origin}/editor/${currentDocumentId}`;
+    try {
+      setIsLoadingCurrentDocument(true);
+
+      const doc = await getDocumentById(documentIdFromUrl);
+
+      setCurrentDocument(doc);
+      setTitle(doc?.title || "Tài liệu không tên");
+
+      if (doc?.folderId) {
+        setSelectedFolderId(doc.folderId);
+      }
+    } catch (error) {
+      console.error("Lỗi tải tài liệu hiện tại:", error);
+      setCurrentDocument(null);
+      setTitle("");
+      alert("Không tìm thấy tài liệu hoặc bạn không có quyền truy cập.");
+      navigate("/editor");
+    } finally {
+      setIsLoadingCurrentDocument(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  useEffect(() => {
+    loadCurrentDocument();
+  }, [documentIdFromUrl]);
+
+  const handleCreateDocument = async () => {
+    try {
+      const folderId =
+        selectedFolderId === "all" ? "web-project" : selectedFolderId;
+
+      const newDocument = await createDocument({
+        title: "Tài liệu không tên",
+        folderId,
+      });
+
+      await loadDocuments();
+
+      navigate(`/editor/${newDocument._id}`);
+    } catch (error) {
+      console.error("Lỗi tạo tài liệu:", error);
+      alert("Không thể tạo tài liệu mới.");
+    }
+  };
+
+  const handleOpenDocument = (documentId) => {
+    navigate(`/editor/${documentId}`);
+  };
+
+  const handleDeleteDocument = async (event, documentId) => {
+    event.stopPropagation();
+
+    const ok = window.confirm("Bạn có chắc muốn xóa tài liệu này không?");
+
+    if (!ok) return;
 
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      alert("Đã copy link chia sẻ!");
+      await deleteDocument(documentId);
+      await loadDocuments();
+
+      if (documentIdFromUrl === documentId) {
+        navigate("/editor");
+      }
     } catch (error) {
-      prompt("Copy link chia sẻ:", shareUrl);
+      console.error("Lỗi xóa tài liệu:", error);
+      alert("Không thể xóa tài liệu.");
+    }
+  };
+
+  const handleChangeDocumentFolder = async (event, documentId) => {
+    event.stopPropagation();
+
+    const newFolderId = event.target.value;
+
+    try {
+      await updateDocumentFolder(documentId, newFolderId);
+      await loadDocuments();
+
+      if (documentIdFromUrl === documentId) {
+        setCurrentDocument((prev) => ({
+          ...prev,
+          folderId: newFolderId,
+        }));
+        setSelectedFolderId(newFolderId);
+      }
+    } catch (error) {
+      console.error("Lỗi cập nhật thư mục:", error);
+      alert("Không thể chuyển thư mục cho tài liệu.");
     }
   };
 
   const handleTitleBlur = async () => {
-    if (!currentDocumentId) return;
+    if (!documentIdFromUrl) return;
+
+    const nextTitle = title.trim() || "Tài liệu không tên";
+
+    if (nextTitle === currentDocument?.title) return;
 
     try {
-      setTitleSaving(true);
-      await updateDocumentTitle(currentDocumentId, title);
+      setSaveStatus("Đang lưu tên tài liệu...");
+
+      const updatedDocument = await updateDocumentTitle(
+        documentIdFromUrl,
+        nextTitle,
+      );
+
+      setCurrentDocument(updatedDocument);
+      setTitle(updatedDocument.title || nextTitle);
       await loadDocuments();
+
+      setSaveStatus("Đã lưu trên đám mây");
     } catch (error) {
-      console.error("Lỗi lưu tên tài liệu:", error);
-    } finally {
-      setTitleSaving(false);
+      console.error("Lỗi đổi tên tài liệu:", error);
+      setSaveStatus("Lỗi lưu tên tài liệu");
+      alert("Không thể đổi tên tài liệu.");
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!documentIdFromUrl) {
+      alert("Bạn cần mở hoặc tạo tài liệu trước khi chia sẻ.");
+      return;
+    }
+
+    const link = `${window.location.origin}/editor/${documentIdFromUrl}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      alert("Đã copy link chia sẻ.");
+    } catch (error) {
+      console.error("Lỗi copy link:", error);
+      window.prompt("Copy link chia sẻ:", link);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem("email");
+    localStorage.removeItem("userEmail");
     navigate("/login");
   };
 
-  const renderCurrentDocuments = () => {
-    if (documents.length === 0) {
-      return (
-        <div className="empty-box">
-          <div>📄</div>
-          <p>Chưa có tài liệu</p>
-          <small>Bấm tạo tài liệu mới để bắt đầu.</small>
-        </div>
-      );
-    }
-
-    return documents.map((doc) => (
-      <button
-        key={doc.documentId}
-        className={`doc-list-item ${
-          doc.documentId === currentDocumentId ? "selected" : ""
-        }`}
-        onClick={() => handleOpenDocument(doc.documentId)}
-      >
-        <span className="doc-title">{doc.title || "Tài liệu không tên"}</span>
-        <span className="doc-time">
-          {doc.updatedAt
-            ? new Date(doc.updatedAt).toLocaleDateString("vi-VN")
-            : ""}
-        </span>
-      </button>
-    ));
-  };
-
-  const renderProjectFolders = () => {
-    return (
-      <div className="folder-panel">
-        <div className="folder-card active-folder">
-          <span>📁</span>
-          <div>
-            <strong>Tất cả tài liệu</strong>
-            <small>{documents.length} tài liệu</small>
-          </div>
-        </div>
-
-        <div className="folder-card">
-          <span>💻</span>
-          <div>
-            <strong>Đồ án Web</strong>
-            <small>Gợi ý nhóm tài liệu theo dự án</small>
-          </div>
-        </div>
-
-        <div className="folder-card">
-          <span>🔐</span>
-          <div>
-            <strong>Mật mã học</strong>
-            <small>Có thể phát triển thêm bằng folderId</small>
-          </div>
-        </div>
-
-        <div className="folder-note">
-          Hiện tại thư mục dự án có thể dùng để phân loại tài liệu theo
-          folderId. Nếu cần làm nhanh để nộp, bạn có thể để phần này là hướng
-          phát triển.
-        </div>
-      </div>
-    );
-  };
-
-  const renderSharedDocuments = () => {
-    if (sharedDocuments.length === 0) {
-      return (
-        <div className="empty-box">
-          <div>👥</div>
-          <p>Chưa có tài liệu được chia sẻ</p>
-        </div>
-      );
-    }
-
-    return sharedDocuments.map((doc) => (
-      <button
-        key={doc.documentId}
-        className={`doc-list-item ${
-          doc.documentId === currentDocumentId ? "selected" : ""
-        }`}
-        onClick={() => handleOpenDocument(doc.documentId)}
-      >
-        <span className="doc-title">{doc.title || "Tài liệu không tên"}</span>
-        <span className="doc-time">
-          Chủ sở hữu: {doc.owner?.name || doc.owner?.email || "Ẩn"}
-        </span>
-      </button>
-    ));
-  };
-
-  if (!token) return null;
-
   return (
-    <div className="editor-layout">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-icon">📄</span>
-          <span className="brand-title">MyDocs</span>
-        </div>
+    <>
+      <style>{editorPageStyles}</style>
 
-        <button className="new-doc-btn" onClick={handleCreateDocument}>
-          + Tạo tài liệu mới
-        </button>
-
-        <div className="workspace-title">KHÔNG GIAN LÀM VIỆC</div>
-
-        <button
-          className={`sidebar-item ${activeMenu === "current" ? "active" : ""}`}
-          onClick={() => setActiveMenu("current")}
-        >
-          📄 Tài liệu hiện tại
-        </button>
-
-        <button
-          className={`sidebar-item ${activeMenu === "folders" ? "active" : ""}`}
-          onClick={() => setActiveMenu("folders")}
-        >
-          📁 Thư mục dự án
-        </button>
-
-        <button
-          className={`sidebar-item ${activeMenu === "shared" ? "active" : ""}`}
-          onClick={() => setActiveMenu("shared")}
-        >
-          👥 Đã chia sẻ với tôi
-        </button>
-
-        <div className="sidebar-list">
-          {activeMenu === "current" && renderCurrentDocuments()}
-          {activeMenu === "folders" && renderProjectFolders()}
-          {activeMenu === "shared" && renderSharedDocuments()}
-        </div>
-      </aside>
-
-      <main className="editor-main">
-        <header className="editor-header">
-          <div className="document-info">
-            <input
-              className="document-title-input"
-              value={title}
-              disabled={!currentDocumentId}
-              onChange={(event) => setTitle(event.target.value)}
-              onBlur={handleTitleBlur}
-            />
-
-            <div className="cloud-status">
-              <span className="green-dot"></span>
-              {titleSaving ? "Đang lưu tên..." : "Đã lưu trên đám mây"}
-            </div>
+      <div className="editor-page">
+        <aside className="editor-sidebar">
+          <div className="sidebar-header">
+            <div className="sidebar-menu-icon">☰</div>
+            <h1>MyDocs</h1>
           </div>
 
-          <div className="header-actions">
-            <button className="share-btn" onClick={handleShare}>
-              + Chia sẻ
+          <button
+            className="create-document-btn"
+            onClick={handleCreateDocument}
+          >
+            + Tạo tài liệu mới
+          </button>
+
+          <div className="sidebar-section">
+            <p className="sidebar-section-title">KHÔNG GIAN LÀM VIỆC</p>
+
+            <button
+              className={
+                !documentIdFromUrl
+                  ? "sidebar-nav-item active"
+                  : "sidebar-nav-item"
+              }
+              onClick={() => navigate("/editor")}
+            >
+              <span>📄</span>
+              <span>Tài liệu hiện tại</span>
             </button>
 
-            <div className="user-pill">
-              <span className="avatar">
-                {user?.name?.[0]?.toUpperCase() ||
-                  user?.email?.[0]?.toUpperCase() ||
-                  "U"}
-              </span>
-              <span>{user?.name || user?.email || "Người dùng"}</span>
-            </div>
+            <button className="sidebar-nav-item active-folder">
+              <span>📁</span>
+              <span>Thư mục dự án</span>
+            </button>
 
-            <button className="logout-btn" onClick={handleLogout}>
-              Rời khỏi
+            <button
+              className="sidebar-nav-item"
+              onClick={() => {
+                const section = document.querySelector(
+                  ".shared-documents-section",
+                );
+
+                if (section) {
+                  section.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }
+              }}
+            >
+              <span>👥</span>
+              <span>Đã chia sẻ với tôi</span>
             </button>
           </div>
-        </header>
 
-        <section className="editor-content-area">
-          {loading ? (
-            <div className="editor-loading">Đang tải tài liệu...</div>
-          ) : !currentDocumentId ? (
-            <div className="empty-editor-state">
-              <h2>Chưa mở tài liệu</h2>
-              <p>
-                Chọn một tài liệu ở thanh bên trái hoặc tạo tài liệu mới để bắt
-                đầu.
-              </p>
-              <button onClick={handleCreateDocument}>+ Tạo tài liệu mới</button>
+          <div className="folder-list">
+            {PROJECT_FOLDERS.map((folder) => (
+              <button
+                key={folder.id}
+                className={
+                  selectedFolderId === folder.id
+                    ? "folder-card selected"
+                    : "folder-card"
+                }
+                onClick={() => setSelectedFolderId(folder.id)}
+              >
+                <div className="folder-card-icon">{folder.icon}</div>
+
+                <div className="folder-card-content">
+                  <strong>{folder.name}</strong>
+                  <span>{folder.description}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="document-list-section">
+            <div className="document-list-header">
+              <span>{selectedFolder.name}</span>
+              <small>{filteredDocuments.length} tài liệu</small>
             </div>
-          ) : (
-            <EditorComponent documentId={currentDocumentId} />
-          )}
-        </section>
-      </main>
-    </div>
+
+            {isLoadingDocuments ? (
+              <div className="document-empty">Đang tải tài liệu...</div>
+            ) : filteredDocuments.length === 0 ? (
+              <div className="document-empty">
+                Chưa có tài liệu trong thư mục này.
+              </div>
+            ) : (
+              <div className="document-list">
+                {filteredDocuments.map((doc) => (
+                  <div
+                    key={doc._id}
+                    className={
+                      documentIdFromUrl === doc._id
+                        ? "document-item selected"
+                        : "document-item"
+                    }
+                    onClick={() => handleOpenDocument(doc._id)}
+                  >
+                    <div className="document-item-main">
+                      <span className="document-icon">📄</span>
+
+                      <div className="document-info">
+                        <strong>{doc.title || "Tài liệu không tên"}</strong>
+                        <small>
+                          {doc.updatedAt
+                            ? new Date(doc.updatedAt).toLocaleDateString(
+                                "vi-VN",
+                              )
+                            : "Chưa cập nhật"}
+                        </small>
+                      </div>
+                    </div>
+
+                    <div className="document-actions">
+                      <select
+                        className="document-folder-select"
+                        value={doc.folderId || "web-project"}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) =>
+                          handleChangeDocumentFolder(event, doc._id)
+                        }
+                      >
+                        {PROJECT_FOLDERS.filter(
+                          (folder) => folder.id !== "all",
+                        ).map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        className="delete-document-btn"
+                        onClick={(event) =>
+                          handleDeleteDocument(event, doc._id)
+                        }
+                        title="Xóa tài liệu"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="shared-documents-section">
+            <div className="document-list-header">
+              <span>Đã chia sẻ với tôi</span>
+              <small>{sharedDocuments.length} tài liệu</small>
+            </div>
+
+            {sharedDocuments.length === 0 ? (
+              <div className="document-empty">
+                Chưa có tài liệu nào được chia sẻ với bạn.
+              </div>
+            ) : (
+              <div className="document-list">
+                {sharedDocuments.map((doc) => (
+                  <div
+                    key={doc._id}
+                    className={
+                      documentIdFromUrl === doc._id
+                        ? "document-item selected"
+                        : "document-item"
+                    }
+                    onClick={() => handleOpenDocument(doc._id)}
+                  >
+                    <div className="document-item-main">
+                      <span className="document-icon">👥</span>
+
+                      <div className="document-info">
+                        <strong>{doc.title || "Tài liệu không tên"}</strong>
+                        <small>
+                          Chủ sở hữu:{" "}
+                          {doc.owner?.email || doc.owner?.name || "Không rõ"}
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+
+        <main className="editor-main">
+          <header className="editor-topbar">
+            <div className="document-title-area">
+              {documentIdFromUrl ? (
+                <input
+                  className="document-title-input"
+                  value={title}
+                  disabled={isLoadingCurrentDocument}
+                  onChange={(event) => setTitle(event.target.value)}
+                  onBlur={handleTitleBlur}
+                />
+              ) : (
+                <div className="document-title-placeholder">
+                  Chưa mở tài liệu
+                </div>
+              )}
+
+              <div className="document-save-status">{saveStatus}</div>
+            </div>
+
+            <div className="editor-header-actions">
+              <button className="share-button" onClick={handleCopyShareLink}>
+                + Chia sẻ
+              </button>
+
+              <div className="user-badge">
+                <div className="user-avatar">
+                  {userEmail.charAt(0).toUpperCase()}
+                </div>
+                <span>{userEmail}</span>
+              </div>
+
+              <button className="logout-button" onClick={handleLogout}>
+                Rời khỏi
+              </button>
+            </div>
+          </header>
+
+          <section className="editor-content">
+            {!documentIdFromUrl ? (
+              <div className="empty-editor-state">
+                <div className="empty-editor-icon">📄</div>
+                <h2>Chưa mở tài liệu</h2>
+                <p>
+                  Chọn một tài liệu ở sidebar hoặc bấm “+ Tạo tài liệu mới” để
+                  bắt đầu soạn thảo.
+                </p>
+              </div>
+            ) : isLoadingCurrentDocument ? (
+              <div className="empty-editor-state">
+                <div className="empty-editor-icon">⏳</div>
+                <h2>Đang tải tài liệu</h2>
+                <p>Vui lòng chờ trong giây lát.</p>
+              </div>
+            ) : (
+              <EditorComponent documentId={documentIdFromUrl} />
+            )}
+          </section>
+        </main>
+      </div>
+    </>
   );
-};
+}
 
 export default Editor;

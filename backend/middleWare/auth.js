@@ -2,29 +2,50 @@ const jwt = require("jsonwebtoken");
 
 const auth = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = req.header("Authorization");
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader) {
       return res.status(401).json({
-        success: false,
-        message: "Không có token xác thực",
+        message: "Không có token xác thực.",
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "")
+      : authHeader;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Token không hợp lệ.",
+      });
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    const userId =
+      decoded.id ||
+      decoded._id ||
+      decoded.userId ||
+      decoded.user?.id ||
+      decoded.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Token không chứa thông tin người dùng.",
+      });
+    }
+
     req.user = {
-      id: decoded.id || decoded.userId,
-      email: decoded.email,
+      id: userId,
+      _id: userId,
+      userId,
+      email: decoded.email || decoded.user?.email,
     };
 
     next();
   } catch (error) {
     return res.status(401).json({
-      success: false,
-      message: "Token không hợp lệ",
+      message: "Token hết hạn hoặc không hợp lệ.",
     });
   }
 };

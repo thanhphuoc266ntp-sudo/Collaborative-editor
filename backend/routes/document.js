@@ -53,6 +53,13 @@ const canEditDocument = (document, userId) => {
 router.post("/", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
+
     const { title, folderId } = req.body;
 
     const document = await Document.create({
@@ -73,7 +80,7 @@ router.post("/", auth, async (req, res) => {
     console.error("Create document error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi tạo tài liệu.",
+      message: error.message || "Lỗi server khi tạo tài liệu.",
     });
   }
 });
@@ -81,6 +88,12 @@ router.post("/", auth, async (req, res) => {
 router.get("/", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     const documents = await Document.find({
       owner: userId,
@@ -96,7 +109,7 @@ router.get("/", auth, async (req, res) => {
     console.error("Get documents error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi lấy danh sách tài liệu.",
+      message: error.message || "Lỗi server khi lấy danh sách tài liệu.",
     });
   }
 });
@@ -104,6 +117,12 @@ router.get("/", auth, async (req, res) => {
 router.get("/shared-with-me", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     const documents = await Document.find({
       "collaborators.user": userId,
@@ -122,7 +141,7 @@ router.get("/shared-with-me", auth, async (req, res) => {
     console.error("Get shared documents error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi lấy tài liệu được chia sẻ.",
+      message: error.message || "Lỗi server khi lấy tài liệu được chia sẻ.",
     });
   }
 });
@@ -131,6 +150,12 @@ router.get("/:documentId", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
     const { documentId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     const document = await Document.findById(documentId)
       .select("-yState")
@@ -156,7 +181,7 @@ router.get("/:documentId", auth, async (req, res) => {
     console.error("Get document by id error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi lấy tài liệu.",
+      message: error.message || "Lỗi server khi lấy tài liệu.",
     });
   }
 });
@@ -166,6 +191,12 @@ router.put("/:documentId/title", auth, async (req, res) => {
     const userId = getUserId(req);
     const { documentId } = req.params;
     const { title } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     const document = await Document.findById(documentId);
 
@@ -197,7 +228,7 @@ router.put("/:documentId/title", auth, async (req, res) => {
     console.error("Update title error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi đổi tên tài liệu.",
+      message: error.message || "Lỗi server khi đổi tên tài liệu.",
     });
   }
 });
@@ -207,6 +238,12 @@ router.put("/:documentId/folder", auth, async (req, res) => {
     const userId = getUserId(req);
     const { documentId } = req.params;
     const { folderId } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     const document = await Document.findById(documentId);
 
@@ -240,7 +277,7 @@ router.put("/:documentId/folder", auth, async (req, res) => {
     console.error("Update folder error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi cập nhật thư mục.",
+      message: error.message || "Lỗi server khi cập nhật thư mục.",
     });
   }
 });
@@ -250,6 +287,12 @@ router.post("/:documentId/share", auth, async (req, res) => {
     const userId = getUserId(req);
     const { documentId } = req.params;
     const { email, role } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     if (!email || !String(email).trim()) {
       return res.status(400).json({
@@ -291,9 +334,9 @@ router.post("/:documentId/share", auth, async (req, res) => {
 
     const nextRole = role === "editor" ? "editor" : "viewer";
 
-    const existedCollaborator = document.collaborators.find(
-      (collaborator) => String(collaborator.user) === String(targetUser._id),
-    );
+    const existedCollaborator = document.collaborators.find((collaborator) => {
+      return String(collaborator.user) === String(targetUser._id);
+    });
 
     if (existedCollaborator) {
       existedCollaborator.role = nextRole;
@@ -319,7 +362,7 @@ router.post("/:documentId/share", auth, async (req, res) => {
     console.error("Share document error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi chia sẻ tài liệu.",
+      message: error.message || "Lỗi server khi chia sẻ tài liệu.",
     });
   }
 });
@@ -328,6 +371,12 @@ router.delete("/:documentId", auth, async (req, res) => {
   try {
     const userId = getUserId(req);
     const { documentId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Không xác định được người dùng.",
+      });
+    }
 
     const document = await Document.findById(documentId);
 
@@ -356,7 +405,7 @@ router.delete("/:documentId", auth, async (req, res) => {
     console.error("Delete document error:", error);
 
     return res.status(500).json({
-      message: "Lỗi server khi xóa tài liệu.",
+      message: error.message || "Lỗi server khi xóa tài liệu.",
     });
   }
 });
