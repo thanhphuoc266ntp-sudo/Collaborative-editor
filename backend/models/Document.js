@@ -25,22 +25,26 @@ const documentSchema = new mongoose.Schema(
       default: "Tài liệu không tên",
       trim: true,
     },
+
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
+
     collaborators: {
       type: [collaboratorSchema],
       default: [],
     },
+
     folderId: {
       type: String,
       enum: ["web-project", "crypto", "notes"],
       default: "web-project",
       index: true,
     },
+
     yState: {
       type: Buffer,
       default: null,
