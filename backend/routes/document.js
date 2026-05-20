@@ -1,145 +1,208 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const router = express.Router();
 const Document = require("../models/Document");
-const User = require("../models/User");
+const auth = require("../middleware/auth");
 
-router.post("/create", async (req, res) => {
+router.post("/", auth, async (req, res) => {
   try {
-    const { userId, title } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu userId",
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: "userId không hợp lệ",
-      });
-    }
-
-    const userExists = await User.findById(userId);
-
-    if (!userExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy người dùng để tạo tài liệu",
-      });
-    }
-
-    const newDoc = new Document({
-      title: title || "Tài liệu không tên",
-      owner: userId,
+    const document = await Document.create({
+      title: req.body.title || "Tài liệu không tên",
+      owner: req.user.id,
+      folderId: req.body.folderId || "root",
       content: "",
+      yState: null,
+      collaborators: [],
     });
-
-    await newDoc.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Tạo tài liệu thành công",
-      documentId: newDoc.documentId,
-      id: newDoc._id,
-      document: newDoc,
-    });
-  } catch (error) {
-    console.error("Lỗi server khi tạo tài liệu:", error);
-
-    res.status(500).json({
-      success: false,
-      message: error.message || "Lỗi server khi tạo tài liệu",
-    });
-  }
-});
-
-router.get("/my-docs/:userId", async (req, res) => {
-  try {
-    const docs = await Document.find({
-      $or: [
-        { owner: req.params.userId },
-        { "collaborators.user": req.params.userId },
-      ],
-    }).sort({ updatedAt: -1 });
 
     res.json({
       success: true,
-      documents: docs,
+      document,
     });
   } catch (error) {
-    console.error("Lỗi tải danh sách tài liệu:", error);
-
+    console.error("Lỗi tạo tài liệu:", error);
     res.status(500).json({
       success: false,
-      message: "Lỗi server khi tải danh sách",
+      message: "Không thể tạo tài liệu",
     });
   }
 });
 
-router.post("/share", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   try {
-    const { documentId, shareWithUsername, role } = req.body;
+    const documents = await Document.find({
+      owner: req.user.id,
+    })
+      .sort({ updatedAt: -1 })
+      .select("title documentId folderId updatedAt createdAt");
 
-    if (!documentId || !shareWithUsername) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu documentId hoặc tên người dùng cần chia sẻ",
-      });
-    }
-
-    const targetUser = await User.findOne({
-      username: shareWithUsername,
+    res.json({
+      success: true,
+      documents,
     });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách tài liệu:", error);
+    res.status(500).json({
+      success: false,
+      message: "Không thể lấy danh sách tài liệu",
+    });
+  }
+});
 
-    if (!targetUser) {
+router.get("/shared-with-me", auth, async (req, res) => {
+  try {
+    const documents = await Document.find({
+      "collaborators.user": req.user.id,
+    })
+      .populate("owner", "name email")
+      .sort({ updatedAt: -1 })
+      .select("title documentId owner collaborators updatedAt createdAt");
+
+    res.json({
+      success: true,
+      documents,
+    });
+  } catch (error) {
+    console.error("Lỗi lấy tài liệu được chia sẻ:", error);
+    res.status(500).json({
+      success: false,
+      message: "Không thể lấy tài liệu được chia sẻ",
+    });
+  }
+});
+
+router.get("/:documentId", auth, async (req, res) => {
+  try {
+    const document = await Document.findOne({
+      documentId: req.params.documentId,
+    }).populate("owner", "name email");
+
+    if (!document) {
       return res.status(404).json({
         success: false,
-        message: "Không tìm thấy người dùng này!",
+        message: "Không tìm thấy tài liệu",
       });
     }
 
-    const updatedDoc = await Document.findOneAndUpdate(
-      { documentId },
-      {
-        $addToSet: {
-          collaborators: {
-            user: targetUser._id,
-            role: role || "editor",
-          },
-        },
-      },
-      {
-        new: true,
-        runValidators: true,
-      },
+    const isOwner = document.owner?._id?.toString() === req.user.id;
+    const isCollaborator = document.collaborators.some(
+      (item) => item.user.toString() === req.user.id,
     );
 
-    if (!updatedDoc) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy tài liệu!",
+    if (!isOwner && !isCollaborator) {
+      return res.json({
+        success: true,
+        document,
+        permission: "link",
       });
     }
 
     res.json({
       success: true,
-      message: `Đã chia sẻ quyền ${role || "editor"} cho ${shareWithUsername}`,
-      document: updatedDoc,
+      document,
+      permission: isOwner ? "owner" : "collaborator",
+    });
+  } catch (error) {
+    console.error("Lỗi lấy tài liệu:", error);
+    res.status(500).json({
+      success: false,
+      message: "Không thể lấy tài liệu",
+    });
+  }
+});
+
+router.put("/:documentId/title", auth, async (req, res) => {
+  try {
+    const title = req.body.title?.trim() || "Tài liệu không tên";
+
+    const document = await Document.findOne({
+      documentId: req.params.documentId,
+    });
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy tài liệu",
+      });
+    }
+
+    const isOwner = document.owner?.toString() === req.user.id;
+
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền đổi tên tài liệu",
+      });
+    }
+
+    document.title = title;
+    await document.save();
+
+    res.json({
+      success: true,
+      document,
+    });
+  } catch (error) {
+    console.error("Lỗi đổi tên tài liệu:", error);
+    res.status(500).json({
+      success: false,
+      message: "Không thể đổi tên tài liệu",
+    });
+  }
+});
+
+router.post("/:documentId/share", auth, async (req, res) => {
+  try {
+    const { userId, role } = req.body;
+
+    const document = await Document.findOne({
+      documentId: req.params.documentId,
+    });
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy tài liệu",
+      });
+    }
+
+    const isOwner = document.owner?.toString() === req.user.id;
+
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền chia sẻ tài liệu",
+      });
+    }
+
+    const existingCollaborator = document.collaborators.find(
+      (item) => item.user.toString() === userId,
+    );
+
+    if (existingCollaborator) {
+      existingCollaborator.role = role || "editor";
+    } else {
+      document.collaborators.push({
+        user: userId,
+        role: role || "editor",
+      });
+    }
+
+    await document.save();
+
+    res.json({
+      success: true,
+      document,
     });
   } catch (error) {
     console.error("Lỗi chia sẻ tài liệu:", error);
-
     res.status(500).json({
       success: false,
-      message: "Lỗi server khi chia sẻ",
+      message: "Không thể chia sẻ tài liệu",
     });
   }
 });
 
-router.get("/:documentId", async (req, res) => {
+router.delete("/:documentId", auth, async (req, res) => {
   try {
     const document = await Document.findOne({
       documentId: req.params.documentId,
@@ -152,81 +215,28 @@ router.get("/:documentId", async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      document: {
-        id: document._id,
-        documentId: document.documentId,
-        title: document.title,
-        content: document.content || "",
-        owner: document.owner,
-        folderId: document.folderId,
-        collaborators: document.collaborators,
-        createdAt: document.createdAt,
-        updatedAt: document.updatedAt,
-      },
-    });
-  } catch (error) {
-    console.error("Lỗi tải tài liệu:", error);
+    const isOwner = document.owner?.toString() === req.user.id;
 
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi tải tài liệu",
-    });
-  }
-});
-
-router.put("/:documentId", async (req, res) => {
-  try {
-    const { content, title } = req.body;
-
-    const updateData = {};
-
-    if (content !== undefined) {
-      updateData.content = String(content);
-    }
-
-    if (title !== undefined) {
-      updateData.title = title || "Tài liệu không tên";
-    }
-
-    const updatedDocument = await Document.findOneAndUpdate(
-      { documentId: req.params.documentId },
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
-
-    if (!updatedDocument) {
-      return res.status(404).json({
+    if (!isOwner) {
+      return res.status(403).json({
         success: false,
-        message: "Không tìm thấy tài liệu",
+        message: "Bạn không có quyền xóa tài liệu",
       });
     }
 
+    await Document.deleteOne({
+      documentId: req.params.documentId,
+    });
+
     res.json({
       success: true,
-      message: "Đã lưu tài liệu",
-      document: {
-        id: updatedDocument._id,
-        documentId: updatedDocument.documentId,
-        title: updatedDocument.title,
-        content: updatedDocument.content || "",
-        owner: updatedDocument.owner,
-        folderId: updatedDocument.folderId,
-        collaborators: updatedDocument.collaborators,
-        createdAt: updatedDocument.createdAt,
-        updatedAt: updatedDocument.updatedAt,
-      },
+      message: "Đã xóa tài liệu",
     });
   } catch (error) {
-    console.error("Lỗi lưu tài liệu:", error);
-
+    console.error("Lỗi xóa tài liệu:", error);
     res.status(500).json({
       success: false,
-      message: "Lỗi server khi lưu tài liệu",
+      message: "Không thể xóa tài liệu",
     });
   }
 });

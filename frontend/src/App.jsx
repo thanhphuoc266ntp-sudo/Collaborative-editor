@@ -10,12 +10,16 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/" element={<Navigate to="/editor" replace />} />
+
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/editor/:id" element={<Editor />} />
-        <Route path="*" element={<Navigate to="/login" />} />
+
+        <Route path="/editor" element={<Editor />} />
+        <Route path="/editor/:documentId" element={<Editor />} />
+
+        <Route path="*" element={<Navigate to="/editor" replace />} />
       </Routes>
     </BrowserRouter>
   );
