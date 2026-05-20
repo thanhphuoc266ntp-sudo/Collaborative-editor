@@ -1,5 +1,23 @@
 const mongoose = require("mongoose");
 
+const collaboratorSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: ["viewer", "editor"],
+      default: "viewer",
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const documentSchema = new mongoose.Schema(
   {
     title: {
@@ -7,49 +25,26 @@ const documentSchema = new mongoose.Schema(
       default: "Tài liệu không tên",
       trim: true,
     },
-
-    documentId: {
-      type: String,
-      unique: true,
-      index: true,
-      required: true,
-      default: () => Math.random().toString(36).substring(2, 10),
-    },
-
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      default: null,
+      required: true,
+      index: true,
     },
-
+    collaborators: {
+      type: [collaboratorSchema],
+      default: [],
+    },
     folderId: {
       type: String,
-      default: "root",
+      enum: ["web-project", "crypto", "notes"],
+      default: "web-project",
+      index: true,
     },
-
-    content: {
-      type: String,
-      default: "",
-    },
-
     yState: {
       type: Buffer,
       default: null,
     },
-
-    collaborators: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-        role: {
-          type: String,
-          enum: ["viewer", "editor"],
-          default: "editor",
-        },
-      },
-    ],
   },
   {
     timestamps: true,
