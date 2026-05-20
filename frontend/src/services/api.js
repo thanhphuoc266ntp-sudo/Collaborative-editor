@@ -1,9 +1,15 @@
 import axios from "axios";
 
+const rawApiUrl =
+  import.meta.env.VITE_API_URL ||
+  "https://collaborative-editor-zegd.onrender.com/api";
+
+const normalizedApiUrl = rawApiUrl.endsWith("/api")
+  ? rawApiUrl
+  : `${rawApiUrl.replace(/\/$/, "")}/api`;
+
 const API = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    "https://collaborative-editor-zegd.onrender.com/api",
+  baseURL: normalizedApiUrl,
 });
 
 API.interceptors.request.use((req) => {
