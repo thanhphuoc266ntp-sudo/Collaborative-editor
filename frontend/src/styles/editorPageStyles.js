@@ -362,6 +362,39 @@ body {
   gap: 12px;
 }
 
+.share-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-role-select {
+  height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+.share-role-select:hover {
+  border-color: #a5b4fc;
+}
+
+.share-role-select:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.share-role-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .share-button {
   height: 40px;
   border: none;
@@ -372,6 +405,7 @@ body {
   font-weight: 700;
   padding: 0 16px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .share-button:hover {
@@ -495,6 +529,18 @@ body {
 
   .editor-header-actions {
     flex-wrap: wrap;
+  }
+
+  .share-control {
+    width: 100%;
+  }
+
+  .share-role-select {
+    flex: 1;
+  }
+
+  .share-button {
+    flex: 1;
   }
 
   .document-title-input {

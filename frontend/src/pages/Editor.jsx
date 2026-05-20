@@ -56,6 +56,7 @@ function Editor() {
   const [selectedFolderId, setSelectedFolderId] = useState("all");
   const [currentDocument, setCurrentDocument] = useState(null);
   const [title, setTitle] = useState("");
+  const [shareRole, setShareRole] = useState("viewer");
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isLoadingCurrentDocument, setIsLoadingCurrentDocument] =
     useState(false);
@@ -137,6 +138,10 @@ function Editor() {
 
       if (doc.folderId) {
         setSelectedFolderId(doc.folderId);
+      }
+
+      if (doc.shareLink?.role) {
+        setShareRole(doc.shareLink.role === "editor" ? "editor" : "viewer");
       }
     } catch (error) {
       console.error("Lỗi tải tài liệu hiện tại:", error);
@@ -294,21 +299,16 @@ function Editor() {
       return;
     }
 
-    const roleInput = window.prompt(
-      "Người có link được quyền gì? Nhập viewer hoặc editor",
-      "viewer",
-    );
-
-    const role = roleInput === "editor" ? "editor" : "viewer";
-
     try {
-      await enableDocumentLinkSharing(activeDocumentId, role);
+      await enableDocumentLinkSharing(activeDocumentId, shareRole);
 
       const link = `${window.location.origin}/editor/${activeDocumentId}`;
 
       try {
         await navigator.clipboard.writeText(link);
-        alert(`Đã bật chia sẻ bằng link với quyền ${role}. Link đã được copy.`);
+        alert(
+          `Đã bật chia sẻ bằng link với quyền ${shareRole}. Link đã được copy.`,
+        );
       } catch (copyError) {
         console.error("Không thể copy link tự động:", copyError);
         window.prompt("Copy link chia sẻ:", link);
@@ -319,7 +319,7 @@ function Editor() {
       alert(
         error.response?.data?.message ||
           error.message ||
-          "Không thể bật chia sẻ bằng link.",
+          "Không thể bật chia sẻ bằng link. Kiểm tra backend đã deploy route /link-sharing chưa.",
       );
     }
   };
@@ -439,9 +439,21 @@ function Editor() {
             </div>
 
             <div className="editor-header-actions">
-              <button className="share-button" onClick={handleShareDocument}>
-                + Chia sẻ
-              </button>
+              <div className="share-control">
+                <select
+                  className="share-role-select"
+                  value={shareRole}
+                  onChange={(event) => setShareRole(event.target.value)}
+                  disabled={!activeDocumentId}
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                </select>
+
+                <button className="share-button" onClick={handleShareDocument}>
+                  + Chia sẻ
+                </button>
+              </div>
 
               <div className="user-badge">
                 <div className="user-avatar">
