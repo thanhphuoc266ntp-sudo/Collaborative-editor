@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import TiptapEditor from "./TiptapEditor";
@@ -22,44 +22,40 @@ const EditorComponent = ({
   myRole = "viewer",
 }) => {
   const [status, setStatus] = useState("Đang kết nối...");
+  const [ydoc, setYdoc] = useState(null);
+  const [provider, setProvider] = useState(null);
 
   const collabUrl = import.meta.env.VITE_COLLAB_URL;
   const hasValidDocumentId = isValidMongoId(documentId);
-  const canConnect = Boolean(hasValidDocumentId && collabUrl);
-
-  const ydoc = useMemo(() => {
-    if (!canConnect) return null;
-    return new Y.Doc();
-  }, [canConnect, documentId]);
-
-  const provider = useMemo(() => {
-    if (!canConnect || !ydoc) return null;
-
-    return new HocuspocusProvider({
-      url: collabUrl,
-      name: documentId,
-      document: ydoc,
-      token: getRealtimeToken(),
-      parameters: {
-        documentId,
-        role: myRole,
-        canEdit: String(Boolean(canEdit)),
-      },
-    });
-  }, [canConnect, collabUrl, documentId, ydoc, canEdit, myRole]);
 
   useEffect(() => {
     if (!hasValidDocumentId) {
       setStatus("Chưa mở tài liệu");
+      setYdoc(null);
+      setProvider(null);
       return;
     }
 
     if (!collabUrl) {
       setStatus("Thiếu cấu hình realtime");
+      setYdoc(null);
+      setProvider(null);
       return;
     }
 
-    if (!provider) return;
+    const nextYdoc = new Y.Doc();
+
+    const nextProvider = new HocuspocusProvider({
+      url: collabUrl,
+      name: String(documentId),
+      document: nextYdoc,
+      token: getRealtimeToken(),
+      parameters: {
+        documentId: String(documentId),
+        role: String(myRole || "viewer"),
+        canEdit: String(Boolean(canEdit)),
+      },
+    });
 
     const handleConnect = () => {
       setStatus(canEdit ? "Đã kết nối" : "Đã kết nối - chế độ chỉ xem");
@@ -79,27 +75,44 @@ const EditorComponent = ({
       setStatus("Lỗi xác thực realtime");
     };
 
-    provider.on("connect", handleConnect);
-    provider.on("synced", handleSynced);
-    provider.on("disconnect", handleDisconnect);
-    provider.on("authenticationFailed", handleAuthenticationFailed);
+    const handleStatus = (event) => {
+      if (event?.status === "connected") {
+        setStatus(canEdit ? "Đã kết nối" : "Đã kết nối - chế độ chỉ xem");
+      }
 
-    return () => {
-      provider.off("connect", handleConnect);
-      provider.off("synced", handleSynced);
-      provider.off("disconnect", handleDisconnect);
-      provider.off("authenticationFailed", handleAuthenticationFailed);
-      provider.destroy();
-    };
-  }, [provider, hasValidDocumentId, collabUrl, canEdit]);
+      if (event?.status === "connecting") {
+        setStatus("Đang kết nối...");
+      }
 
-  useEffect(() => {
-    return () => {
-      if (ydoc) {
-        ydoc.destroy();
+      if (event?.status === "disconnected") {
+        setStatus("Mất kết nối");
       }
     };
-  }, [ydoc]);
+
+    nextProvider.on("connect", handleConnect);
+    nextProvider.on("synced", handleSynced);
+    nextProvider.on("disconnect", handleDisconnect);
+    nextProvider.on("authenticationFailed", handleAuthenticationFailed);
+    nextProvider.on("status", handleStatus);
+
+    setYdoc(nextYdoc);
+    setProvider(nextProvider);
+    setStatus("Đang kết nối...");
+
+    return () => {
+      nextProvider.off("connect", handleConnect);
+      nextProvider.off("synced", handleSynced);
+      nextProvider.off("disconnect", handleDisconnect);
+      nextProvider.off("authenticationFailed", handleAuthenticationFailed);
+      nextProvider.off("status", handleStatus);
+
+      nextProvider.destroy();
+      nextYdoc.destroy();
+
+      setYdoc(null);
+      setProvider(null);
+    };
+  }, [documentId, collabUrl, hasValidDocumentId, canEdit, myRole]);
 
   if (!hasValidDocumentId) {
     return <div className="editor-loading">Không tìm thấy tài liệu hợp lệ</div>;
