@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { TextSelection } from "@tiptap/pm/state";
+import htmlToDocx from "html-to-docx";
 import ToolbarButton from "./ToolbarButton";
 
 const DEFAULT_MARKS = {
@@ -90,6 +91,82 @@ const EditorToolbar = ({
       : myRole === "editor"
         ? "Editor"
         : "Viewer";
+
+  const getDownloadFileName = (extension) => {
+    const date = new Date().toISOString().slice(0, 10);
+    return `mydocs-${date}.${extension}`;
+  };
+
+  const downloadBlob = (blob, fileName) => {
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement("a");
+
+    link.href = url;
+    link.download = fileName;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadDocx = async () => {
+    if (!editor) return;
+
+    const htmlContent = editor.getHTML();
+
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html lang="vi">
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              font-size: 12pt;
+              line-height: 1.5;
+              color: #111827;
+            }
+
+            h1 {
+              font-size: 24pt;
+              font-weight: bold;
+            }
+
+            h2 {
+              font-size: 18pt;
+              font-weight: bold;
+            }
+
+            p {
+              margin: 0 0 8pt 0;
+            }
+
+            ul {
+              margin-left: 20pt;
+            }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `;
+
+    const fileBuffer = await htmlToDocx(fullHtml, null, {
+      table: {
+        row: {
+          cantSplit: true,
+        },
+      },
+      footer: false,
+      pageNumber: false,
+    });
+
+    const blob = new Blob([fileBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    downloadBlob(blob, getDownloadFileName("docx"));
+  };
 
   const getCurrentMarks = () => {
     return marksRef.current || DEFAULT_MARKS;
@@ -376,6 +453,18 @@ const EditorToolbar = ({
         }
       >
         • Danh sách
+      </ToolbarButton>
+
+      <div className="divider"></div>
+
+      <ToolbarButton
+        title="Tải xuống dạng DOCX"
+        active={false}
+        className="text-btn"
+        disabled={!editor}
+        onRun={handleDownloadDocx}
+      >
+        ⬇ DOCX
       </ToolbarButton>
 
       <div className="save-status">

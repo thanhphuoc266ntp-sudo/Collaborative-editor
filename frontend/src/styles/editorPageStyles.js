@@ -5,9 +5,11 @@ const editorPageStyles = `
 
 body {
   margin: 0;
-  font-family: Inter, Arial, sans-serif;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   background: #f5f6fb;
   color: #111827;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .editor-page {
@@ -259,17 +261,7 @@ body {
 }
 
 .document-folder-select {
-  max-width: 92px;
-  height: 30px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 12px;
-  padding: 0 6px;
-  cursor: pointer;
-  opacity: 0;
-  transition: 0.2s ease;
+  display: none;
 }
 
 .delete-document-btn {
@@ -284,8 +276,7 @@ body {
   transition: 0.2s ease;
 }
 
-.document-item:hover .delete-document-btn,
-.document-item:hover .document-folder-select {
+.document-item:hover .delete-document-btn {
   opacity: 1;
 }
 
