@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import API from "../services/api";
-import { GoogleLogin } from "@react-oauth/google";
 import { loginStyles as styles } from "../styles/loginStyles";
 
-const Login = () => {
+const LoginContent = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [errorMsg, setErrorMsg] = useState("");
@@ -59,7 +59,9 @@ const Login = () => {
       [name]: value,
     }));
 
-    if (errorMsg) setErrorMsg("");
+    if (errorMsg) {
+      setErrorMsg("");
+    }
   };
 
   const handleLogin = async (e) => {
@@ -118,8 +120,8 @@ const Login = () => {
     <div style={styles.pageWrapper}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <h2 style={styles.title}>Collaborative Editing System</h2>
-          <p style={styles.subtitle}>Đăng nhập để tiếp tục công việc của bạn</p>
+          <h2 style={styles.title}>MyDocs</h2>
+          <p style={styles.subtitle}>Soạn thảo và cộng tác tài liệu realtime</p>
         </div>
 
         {errorMsg && <div style={styles.errorBox}>⚠️ {errorMsg}</div>}
@@ -134,6 +136,7 @@ const Login = () => {
               placeholder="Nhập tài khoản"
               value={formData.username}
               onChange={handleChange}
+              autoComplete="username"
             />
           </div>
 
@@ -152,6 +155,7 @@ const Login = () => {
               placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
+              autoComplete="current-password"
             />
           </div>
 
@@ -163,7 +167,7 @@ const Login = () => {
               ...(isLoading ? styles.btnDisabled : {}),
             }}
           >
-            {isLoading ? "Đang xác thực..." : "Vào Hệ Thống"}
+            {isLoading ? "Đang xác thực..." : "Đăng nhập"}
           </button>
         </form>
 
@@ -192,6 +196,14 @@ const Login = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const Login = () => {
+  return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ""}>
+      <LoginContent />
+    </GoogleOAuthProvider>
   );
 };
 
