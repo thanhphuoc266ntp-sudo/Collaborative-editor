@@ -133,7 +133,7 @@ const startRealtimeServer = async () => {
       } finally {
         saveTimers.delete(documentName);
       }
-    }, 500);
+    }, 1500);
 
     saveTimers.set(documentName, timer);
   };
