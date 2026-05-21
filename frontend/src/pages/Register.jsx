@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import API from "../services/api";
-import { GoogleLogin } from "@react-oauth/google";
 import { registerStyles as styles } from "../styles/registerStyles";
 
-const Register = () => {
+const RegisterContent = () => {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -23,6 +23,47 @@ const Register = () => {
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const saveLoginData = (data) => {
+    const token = data?.token || data?.accessToken || data?.authToken;
+    const user = data?.user || data?.data?.user || {};
+
+    if (!token) {
+      throw new Error("Backend không trả về token.");
+    }
+
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+
+    if (user.email) {
+      localStorage.setItem("userEmail", user.email);
+      localStorage.setItem("email", user.email);
+    }
+
+    if (user.name || user.displayName || user.fullName || user.username) {
+      localStorage.setItem(
+        "userName",
+        user.name || user.displayName || user.fullName || user.username,
+      );
+    }
+  };
+
+  const goAfterRegister = () => {
+    const redirectPath = localStorage.getItem("redirectAfterLogin");
+
+    localStorage.removeItem("redirectAfterLogin");
+
+    if (
+      redirectPath &&
+      redirectPath.startsWith("/editor/") &&
+      !redirectPath.includes("undefined")
+    ) {
+      navigate(redirectPath, { replace: true });
+      return;
+    }
+
+    navigate("/editor", { replace: true });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -31,7 +72,9 @@ const Register = () => {
       [name]: value,
     }));
 
-    if (errorMsg) setErrorMsg("");
+    if (errorMsg) {
+      setErrorMsg("");
+    }
   };
 
   const handleRegister = async (e) => {
@@ -79,7 +122,9 @@ const Register = () => {
       });
 
       setRegisteredEmail(res.data.email || email.trim());
-      setSuccessMsg(res.data.message);
+      setSuccessMsg(
+        res.data.message || "Mã OTP đã được gửi đến email của bạn.",
+      );
       setStep(2);
     } catch (error) {
       setErrorMsg(
@@ -112,9 +157,9 @@ const Register = () => {
         otp: otp.trim(),
       });
 
-      localStorage.setItem("token", res.data.token);
+      saveLoginData(res.data);
       alert("Xác thực thành công! Chào mừng bạn.");
-      navigate("/");
+      goAfterRegister();
     } catch (error) {
       setErrorMsg(
         error.response?.data?.message || "Mã OTP không đúng hoặc đã hết hạn!",
@@ -134,11 +179,15 @@ const Register = () => {
         idToken: credentialResponse.credential,
       });
 
-      localStorage.setItem("token", res.data.token);
-      alert("Đăng ký & Đăng nhập bằng Google thành công!");
-      navigate("/");
+      saveLoginData(res.data);
+      alert("Đăng ký & đăng nhập bằng Google thành công!");
+      goAfterRegister();
     } catch (error) {
-      setErrorMsg("Đăng nhập Google thất bại. Vui lòng thử lại!");
+      setErrorMsg(
+        error.response?.data?.message ||
+          error.message ||
+          "Đăng nhập Google thất bại. Vui lòng thử lại!",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -151,12 +200,12 @@ const Register = () => {
           <div style={styles.logoCircle}>{step === 1 ? "✨" : "✉️"}</div>
 
           <h2 style={styles.title}>
-            {step === 1 ? "Tham gia ngay!" : "Xác thực Email"}
+            {step === 1 ? "Tạo tài khoản" : "Xác thực Email"}
           </h2>
 
           <p style={styles.subtitle}>
             {step === 1
-              ? "Tạo tài khoản để cùng nhau làm việc"
+              ? "Bắt đầu soạn thảo và cộng tác cùng MyDocs"
               : `Mã OTP đang được gửi tới ${registeredEmail}`}
           </p>
         </div>
@@ -187,6 +236,7 @@ const Register = () => {
                   placeholder="Ví dụ: thanhphuoc"
                   value={formData.username}
                   onChange={handleChange}
+                  autoComplete="username"
                 />
               </div>
 
@@ -199,6 +249,7 @@ const Register = () => {
                   placeholder="Ví dụ: hoten123@gmail.com"
                   value={formData.email}
                   onChange={handleChange}
+                  autoComplete="email"
                 />
               </div>
 
@@ -211,6 +262,7 @@ const Register = () => {
                   placeholder="Tên bạn muốn mọi người gọi"
                   value={formData.displayName}
                   onChange={handleChange}
+                  autoComplete="name"
                 />
               </div>
 
@@ -223,6 +275,7 @@ const Register = () => {
                   placeholder="Tối thiểu 6 ký tự"
                   value={formData.password}
                   onChange={handleChange}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -235,6 +288,7 @@ const Register = () => {
                   placeholder="Nhập lại mật khẩu"
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -246,7 +300,7 @@ const Register = () => {
                   ...(isLoading ? styles.submitBtnDisabled : {}),
                 }}
               >
-                {isLoading ? "Đang tạo tài khoản..." : "Hoàn Tất Đăng Ký"}
+                {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
               </button>
             </form>
 
@@ -283,13 +337,17 @@ const Register = () => {
               <input
                 style={styles.otpInput}
                 type="text"
+                inputMode="numeric"
                 maxLength="6"
                 placeholder="123456"
                 value={otp}
                 onChange={(e) => {
                   setOtp(e.target.value.replace(/[^0-9]/g, ""));
-                  if (errorMsg) setErrorMsg("");
+                  if (errorMsg) {
+                    setErrorMsg("");
+                  }
                 }}
+                autoComplete="one-time-code"
               />
             </div>
 
@@ -303,7 +361,7 @@ const Register = () => {
                 ...(isLoading ? styles.submitBtnDisabled : {}),
               }}
             >
-              {isLoading ? "Đang kiểm tra..." : "Xác Nhận & Đăng Nhập"}
+              {isLoading ? "Đang kiểm tra..." : "Xác nhận & Đăng nhập"}
             </button>
 
             <button
@@ -323,6 +381,14 @@ const Register = () => {
         )}
       </div>
     </div>
+  );
+};
+
+const Register = () => {
+  return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ""}>
+      <RegisterContent />
+    </GoogleOAuthProvider>
   );
 };
 
