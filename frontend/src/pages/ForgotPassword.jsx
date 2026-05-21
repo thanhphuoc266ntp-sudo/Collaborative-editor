@@ -27,7 +27,7 @@ const ForgotPassword = () => {
     e.preventDefault();
 
     if (!email.trim()) {
-      setErrorMsg("Vui lòng nhập địa chỉ email của bạn!");
+      setErrorMsg("Vui lòng nhập địa chỉ email của bạn.");
       return;
     }
 
@@ -40,11 +40,12 @@ const ForgotPassword = () => {
         email: email.trim(),
       });
 
-      setMessage(res.data.message || "Mã OTP đang được gửi đến email của bạn!");
+      setMessage(res.data.message || "Mã OTP đã được gửi đến email của bạn.");
       setStep(2);
     } catch (error) {
       setErrorMsg(
-        error.response?.data?.message || "Lỗi hệ thống. Vui lòng thử lại!",
+        error.response?.data?.message ||
+          "Không thể gửi mã OTP. Vui lòng thử lại.",
       );
     } finally {
       setIsLoading(false);
@@ -55,17 +56,17 @@ const ForgotPassword = () => {
     e.preventDefault();
 
     if (!otp.trim() || !newPassword.trim()) {
-      setErrorMsg("Vui lòng nhập đầy đủ mã OTP và mật khẩu mới!");
+      setErrorMsg("Vui lòng nhập đầy đủ mã OTP và mật khẩu mới.");
       return;
     }
 
     if (otp.trim().length !== 6) {
-      setErrorMsg("Mã OTP phải có đúng 6 chữ số!");
+      setErrorMsg("Mã OTP phải gồm đúng 6 chữ số.");
       return;
     }
 
     if (newPassword.length < 6) {
-      setErrorMsg("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      setErrorMsg("Mật khẩu mới phải có ít nhất 6 ký tự.");
       return;
     }
 
@@ -80,15 +81,15 @@ const ForgotPassword = () => {
         newPassword,
       });
 
-      setMessage(res.data.message || "Đổi mật khẩu thành công!");
+      setMessage(res.data.message || "Cập nhật mật khẩu thành công.");
       setErrorMsg("");
 
       setTimeout(() => {
         navigate("/login");
-      }, 2000);
+      }, 1600);
     } catch (error) {
       setErrorMsg(
-        error.response?.data?.message || "Mã OTP không hợp lệ hoặc đã hết hạn!",
+        error.response?.data?.message || "Mã OTP không hợp lệ hoặc đã hết hạn.",
       );
     } finally {
       setIsLoading(false);
@@ -99,17 +100,19 @@ const ForgotPassword = () => {
     <div style={styles.pageWrapper}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <div style={styles.logoCircle}>{step === 1 ? "🔒" : "✉️"}</div>
+          <div style={styles.logoCircle}>{step === 1 ? "🔐" : "✉️"}</div>
 
           <h2 style={styles.title}>
-            {step === 1 ? "Quên Mật Khẩu?" : "Nhập Mã OTP"}
+            {step === 1 ? "Khôi phục mật khẩu" : "Xác thực OTP"}
           </h2>
 
           <p style={styles.subtitle}>
             {step === 1
-              ? "Nhập email của bạn để nhận mã xác thực 6 số"
-              : `Mã OTP đang được gửi tới ${email}`}
+              ? "Nhập email để nhận mã xác thực đặt lại mật khẩu"
+              : "Nhập mã xác thực đã được gửi đến email của bạn"}
           </p>
+
+          {step === 2 && <p style={styles.emailText}>{email}</p>}
         </div>
 
         {errorMsg && (
@@ -129,15 +132,18 @@ const ForgotPassword = () => {
         {step === 1 ? (
           <form onSubmit={handleSendEmail} style={styles.form} noValidate>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Địa chỉ Email</label>
+              <label style={styles.label}>Địa chỉ email</label>
               <input
                 style={styles.input}
                 type="email"
-                placeholder="VD: email@gmail.com"
+                placeholder="Email của bạn"
                 value={email}
+                autoComplete="email"
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  if (errorMsg) setErrorMsg("");
+                  if (errorMsg) {
+                    setErrorMsg("");
+                  }
                 }}
               />
             </div>
@@ -150,7 +156,7 @@ const ForgotPassword = () => {
                 ...(isLoading ? styles.btnDisabled : {}),
               }}
             >
-              {isLoading ? "Đang xử lý..." : "Gửi Mã OTP"}
+              {isLoading ? "Đang gửi mã..." : "Gửi mã OTP"}
             </button>
           </form>
         ) : (
@@ -160,12 +166,16 @@ const ForgotPassword = () => {
               <input
                 style={styles.otpInput}
                 type="text"
+                inputMode="numeric"
                 maxLength="6"
-                placeholder="123456"
+                placeholder="000000"
                 value={otp}
+                autoComplete="one-time-code"
                 onChange={(e) => {
                   setOtp(e.target.value.replace(/\D/g, ""));
-                  if (errorMsg) setErrorMsg("");
+                  if (errorMsg) {
+                    setErrorMsg("");
+                  }
                 }}
               />
             </div>
@@ -175,11 +185,14 @@ const ForgotPassword = () => {
               <input
                 style={styles.input}
                 type="password"
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Nhập mật khẩu mới"
                 value={newPassword}
+                autoComplete="new-password"
                 onChange={(e) => {
                   setNewPassword(e.target.value);
-                  if (errorMsg) setErrorMsg("");
+                  if (errorMsg) {
+                    setErrorMsg("");
+                  }
                 }}
               />
             </div>
@@ -189,12 +202,11 @@ const ForgotPassword = () => {
               disabled={isLoading}
               style={{
                 ...styles.submitBtn,
-                backgroundColor: "#10b981",
-                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.39)",
+                ...styles.submitBtnSuccess,
                 ...(isLoading ? styles.btnDisabled : {}),
               }}
             >
-              {isLoading ? "Đang xác thực..." : "Cập Nhật Mật Khẩu"}
+              {isLoading ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
             </button>
 
             <button
@@ -203,15 +215,15 @@ const ForgotPassword = () => {
               disabled={isLoading}
               style={styles.backBtn}
             >
-              Thử dùng email khác
+              Dùng email khác
             </button>
           </form>
         )}
 
         <div style={styles.footer}>
-          Nhớ mật khẩu rồi?{" "}
+          Đã nhớ mật khẩu?{" "}
           <Link to="/login" style={styles.link}>
-            Quay lại Đăng nhập
+            Đăng nhập
           </Link>
         </div>
       </div>
