@@ -100,28 +100,7 @@ const EditorToolbar = ({
     return marks;
   };
 
-  const hasRealSelectedText = () => {
-    const { state } = editor.view;
-    const { selection } = state;
-
-    if (selection.empty) return false;
-
-    const selectedTextInDoc = state.doc.textBetween(
-      selection.from,
-      selection.to,
-      "",
-      "",
-    );
-
-    const domSelection = window.getSelection();
-    const selectedTextInDom = domSelection ? domSelection.toString() : "";
-
-    return (
-      selectedTextInDoc.trim().length > 0 && selectedTextInDom.trim().length > 0
-    );
-  };
-
-  const collapseToSafeCursor = () => {
+  const collapseToCursor = () => {
     const { view } = editor;
     const { state } = view;
     const { selection } = state;
@@ -172,7 +151,7 @@ const EditorToolbar = ({
 
     const { view } = editor;
     const { state } = view;
-    const { selection, schema } = state;
+    const { schema } = state;
     const markType = schema.marks[markName];
 
     if (!markType) return;
@@ -186,38 +165,11 @@ const EditorToolbar = ({
     });
 
     const nextMarks = getCurrentMarks();
-    const nextActive = Boolean(nextMarks[markName]);
     const marks = getBuiltMarks(schema);
-    const shouldFormatSelectedText = hasRealSelectedText();
 
-    if (shouldFormatSelectedText) {
-      let transaction = state.tr;
+    collapseToCursor();
 
-      if (nextActive) {
-        transaction = transaction.addMark(
-          selection.from,
-          selection.to,
-          markType.create(),
-        );
-      } else {
-        transaction = transaction.removeMark(
-          selection.from,
-          selection.to,
-          markType,
-        );
-      }
-
-      transaction = transaction.setStoredMarks(marks);
-
-      view.dispatch(transaction);
-      view.focus();
-      forceUpdate((value) => value + 1);
-      return;
-    }
-
-    collapseToSafeCursor();
-
-    if (wasActive && !nextActive) {
+    if (wasActive && !nextMarks[markName]) {
       insertFormatBoundary(marks);
     } else {
       const nextState = editor.view.state;
