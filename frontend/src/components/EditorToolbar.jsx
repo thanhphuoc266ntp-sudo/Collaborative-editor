@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import ToolbarButton from "./ToolbarButton";
 
+const DEFAULT_MARKS = {
+  bold: false,
+  italic: false,
+  underline: false,
+};
+
 const EditorToolbar = ({
   editor,
   status,
@@ -37,11 +43,10 @@ const EditorToolbar = ({
 
   useEffect(() => {
     if (canEdit) return;
+    if (!activeMarksRef) return;
 
     activeMarksRef.current = {
-      bold: false,
-      italic: false,
-      underline: false,
+      ...DEFAULT_MARKS,
     };
 
     forceUpdate((value) => value + 1);
@@ -56,12 +61,49 @@ const EditorToolbar = ({
         ? "Editor"
         : "Viewer";
 
+  const getCurrentMarks = () => {
+    return activeMarksRef?.current || DEFAULT_MARKS;
+  };
+
+  const setCurrentMarks = (nextMarks) => {
+    if (!activeMarksRef) return;
+
+    activeMarksRef.current = {
+      ...DEFAULT_MARKS,
+      ...nextMarks,
+    };
+  };
+
+  const getBuiltMarks = (schema) => {
+    if (typeof buildMarks !== "function") {
+      return [];
+    }
+
+    return buildMarks(schema);
+  };
+
+  const hasRealSelectedText = () => {
+    const { state } = editor.view;
+    const { selection } = state;
+
+    if (selection.empty) return false;
+
+    const selectedText = state.doc.textBetween(
+      selection.from,
+      selection.to,
+      "",
+      "",
+    );
+
+    return selectedText.length > 0;
+  };
+
   const applyTypingMarks = () => {
     if (!canEdit) return;
 
     const { view } = editor;
     const { state } = view;
-    const marks = buildMarks(state.schema);
+    const marks = getBuiltMarks(state.schema);
 
     const transaction = state.tr.setStoredMarks(marks);
 
@@ -71,6 +113,7 @@ const EditorToolbar = ({
 
   const toggleTypingMark = (markName) => {
     if (!canEdit) return;
+    if (!activeMarksRef) return;
 
     const { view } = editor;
     const { state } = view;
@@ -79,19 +122,20 @@ const EditorToolbar = ({
 
     if (!markType) return;
 
-    const wasActive = Boolean(activeMarksRef.current[markName]);
+    const currentMarks = getCurrentMarks();
+    const wasActive = Boolean(currentMarks[markName]);
 
-    activeMarksRef.current = {
-      ...activeMarksRef.current,
+    setCurrentMarks({
+      ...currentMarks,
       [markName]: !wasActive,
-    };
+    });
 
-    const nextActive = Boolean(activeMarksRef.current[markName]);
-    const marks = buildMarks(schema);
+    const nextMarks = getCurrentMarks();
+    const nextActive = Boolean(nextMarks[markName]);
+    const marks = getBuiltMarks(schema);
+    const shouldFormatSelectedText = hasRealSelectedText();
 
-    view.focus();
-
-    if (!selection.empty) {
+    if (shouldFormatSelectedText) {
       let transaction = state.tr;
 
       if (nextActive) {
@@ -112,17 +156,17 @@ const EditorToolbar = ({
 
       view.dispatch(transaction);
       view.focus();
-    } else {
-      view.dispatch(state.tr.setStoredMarks(marks));
-      view.focus();
+
+      forceUpdate((value) => value + 1);
+      return;
     }
 
-    forceUpdate((value) => value + 1);
+    const transaction = state.tr.setStoredMarks(marks);
 
-    requestAnimationFrame(() => {
-      applyTypingMarks();
-      forceUpdate((value) => value + 1);
-    });
+    view.dispatch(transaction);
+    view.focus();
+
+    forceUpdate((value) => value + 1);
   };
 
   const runBlockCommand = (callback) => {
@@ -140,7 +184,7 @@ const EditorToolbar = ({
   const isMarkActive = (markName) => {
     if (!canEdit) return false;
 
-    return Boolean(activeMarksRef.current[markName]);
+    return Boolean(getCurrentMarks()[markName]);
   };
 
   return (
