@@ -11,6 +11,9 @@ import {
   getDocumentById,
   getMyDocuments,
   getSharedDocuments,
+  getFolders,
+  createFolder,
+  deleteFolder,
   updateDocumentFolder,
   updateDocumentTitle,
 } from "../services/api";
@@ -25,15 +28,15 @@ const PROJECT_FOLDERS = [
   },
   {
     id: "web-project",
-    name: "Đồ án Web",
-    icon: "💻",
-    description: "Tài liệu liên quan đến đồ án",
+    name: "Công việc",
+    icon: "💼",
+    description: "Tài liệu liên quan đến công việc và dự án",
   },
   {
     id: "crypto",
-    name: "Mật mã học",
-    icon: "🔐",
-    description: "Bài tập và ghi chú môn học",
+    name: "Học tập",
+    icon: "🎓",
+    description: "Tài liệu học tập, bài tập và nghiên cứu",
   },
   {
     id: "notes",
@@ -183,6 +186,12 @@ function Editor() {
   );
   const [title, setTitle] = useState("");
   const [shareRole, setShareRole] = useState("viewer");
+  const [openSidebarSections, setOpenSidebarSections] = useState({
+    myDocuments: true,
+    folders: false,
+    shared: false,
+  });
+  const [projectFolders, setProjectFolders] = useState(PROJECT_FOLDERS);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isLoadingCurrentDocument, setIsLoadingCurrentDocument] =
     useState(false);
@@ -202,10 +211,11 @@ function Editor() {
 
   const selectedFolder = useMemo(() => {
     return (
-      PROJECT_FOLDERS.find((folder) => folder.id === selectedFolderId) ||
+      projectFolders.find((folder) => folder.id === selectedFolderId) ||
+      projectFolders[0] ||
       PROJECT_FOLDERS[0]
     );
-  }, [selectedFolderId]);
+  }, [projectFolders, selectedFolderId]);
 
   const filteredDocuments = useMemo(() => {
     if (selectedFolderId === "all") return documents;
@@ -221,6 +231,75 @@ function Editor() {
     setCurrentPermission(getDefaultPermission());
     setTitle("");
     setSaveStatus("Đã lưu trên đám mây");
+  };
+
+  const toggleSidebarSection = (sectionName) => {
+    setOpenSidebarSections((prev) => ({
+      ...prev,
+      [sectionName]: !prev[sectionName],
+    }));
+  };
+
+  const loadFolders = async () => {
+    try {
+      const folders = await getFolders();
+
+      if (Array.isArray(folders) && folders.length > 0) {
+        setProjectFolders(folders);
+      } else {
+        setProjectFolders(PROJECT_FOLDERS);
+      }
+    } catch (error) {
+      console.error("Lỗi tải danh sách thư mục:", error);
+      setProjectFolders(PROJECT_FOLDERS);
+    }
+  };
+
+  const handleCreateFolder = async (name) => {
+    try {
+      const folderName = String(name || "").trim();
+
+      if (!folderName) {
+        alert("Vui lòng nhập tên thư mục.");
+        return;
+      }
+
+      const newFolder = await createFolder(folderName);
+      await loadFolders();
+
+      if (newFolder?.id) {
+        setSelectedFolderId(newFolder.id);
+      }
+    } catch (error) {
+      console.error("Lỗi tạo thư mục:", error);
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể tạo thư mục.",
+      );
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    try {
+      const ok = window.confirm("Bạn có chắc muốn xóa thư mục này không?");
+
+      if (!ok) return;
+
+      await deleteFolder(folderId);
+      await loadFolders();
+
+      if (selectedFolderId === folderId) {
+        setSelectedFolderId("all");
+      }
+    } catch (error) {
+      console.error("Lỗi xóa thư mục:", error);
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể xóa thư mục.",
+      );
+    }
   };
 
   const loadDocuments = async () => {
@@ -288,6 +367,7 @@ function Editor() {
       }
 
       await loadDocuments();
+      await loadFolders();
     } catch (error) {
       console.error("Lỗi tải tài liệu hiện tại:", error);
       setCurrentDocument(null);
@@ -303,6 +383,7 @@ function Editor() {
 
   useEffect(() => {
     loadDocuments();
+    loadFolders();
   }, []);
 
   useEffect(() => {
@@ -502,17 +583,6 @@ function Editor() {
     navigate("/login", { replace: true });
   };
 
-  const scrollToSharedDocuments = () => {
-    const section = document.querySelector(".shared-documents-section");
-
-    if (section) {
-      section.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  };
-
   return (
     <>
       <style>{editorPageStyles}</style>
@@ -535,52 +605,99 @@ function Editor() {
             <p className="sidebar-section-title">KHÔNG GIAN LÀM VIỆC</p>
 
             <button
+              type="button"
               className={
-                !activeDocumentId
-                  ? "sidebar-nav-item active"
-                  : "sidebar-nav-item"
+                openSidebarSections.myDocuments
+                  ? "sidebar-collapse-title active"
+                  : "sidebar-collapse-title"
               }
-              onClick={() => navigate("/editor")}
+              onClick={() => toggleSidebarSection("myDocuments")}
             >
-              <span>📄</span>
-              <span>Tài liệu hiện tại</span>
+              <span className="sidebar-collapse-left">
+                <span className="sidebar-collapse-icon">📄</span>
+                <span>Tài liệu của tôi</span>
+              </span>
+
+              <span className="sidebar-collapse-arrow">
+                {openSidebarSections.myDocuments ? "▾" : "▸"}
+              </span>
             </button>
 
-            <button className="sidebar-nav-item active-folder">
-              <span>📁</span>
-              <span>Thư mục dự án</span>
-            </button>
+            {openSidebarSections.myDocuments && (
+              <div className="sidebar-collapse-content">
+                <CurrentDocumentPanel
+                  documents={filteredDocuments}
+                  selectedFolder={selectedFolder}
+                  documentIdFromUrl={activeDocumentId}
+                  isLoadingDocuments={isLoadingDocuments}
+                  folders={projectFolders}
+                  onOpenDocument={handleOpenDocument}
+                  onDeleteDocument={handleDeleteDocument}
+                  onChangeDocumentFolder={handleChangeDocumentFolder}
+                />
+              </div>
+            )}
 
             <button
-              className="sidebar-nav-item"
-              onClick={scrollToSharedDocuments}
+              type="button"
+              className={
+                openSidebarSections.folders
+                  ? "sidebar-collapse-title active"
+                  : "sidebar-collapse-title"
+              }
+              onClick={() => toggleSidebarSection("folders")}
             >
-              <span>👥</span>
-              <span>Đã chia sẻ với tôi</span>
+              <span className="sidebar-collapse-left">
+                <span className="sidebar-collapse-icon">📁</span>
+                <span>Thư mục dự án</span>
+              </span>
+
+              <span className="sidebar-collapse-arrow">
+                {openSidebarSections.folders ? "▾" : "▸"}
+              </span>
             </button>
+
+            {openSidebarSections.folders && (
+              <div className="sidebar-collapse-content">
+                <ProjectFoldersPanel
+                  folders={projectFolders}
+                  selectedFolderId={selectedFolderId}
+                  onSelectFolder={setSelectedFolderId}
+                  onCreateFolder={handleCreateFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              className={
+                openSidebarSections.shared
+                  ? "sidebar-collapse-title active"
+                  : "sidebar-collapse-title"
+              }
+              onClick={() => toggleSidebarSection("shared")}
+            >
+              <span className="sidebar-collapse-left">
+                <span className="sidebar-collapse-icon">👥</span>
+                <span>Đã chia sẻ với tôi</span>
+              </span>
+
+              <span className="sidebar-collapse-arrow">
+                {openSidebarSections.shared ? "▾" : "▸"}
+              </span>
+            </button>
+
+            {openSidebarSections.shared && (
+              <div className="sidebar-collapse-content">
+                <SharedDocumentsPanel
+                  sharedDocuments={sharedDocuments}
+                  documentIdFromUrl={activeDocumentId}
+                  onOpenDocument={handleOpenDocument}
+                />
+              </div>
+            )}
           </div>
-
-          <ProjectFoldersPanel
-            folders={PROJECT_FOLDERS}
-            selectedFolderId={selectedFolderId}
-            onSelectFolder={setSelectedFolderId}
-          />
-
-          <CurrentDocumentPanel
-            documents={filteredDocuments}
-            selectedFolder={selectedFolder}
-            documentIdFromUrl={activeDocumentId}
-            isLoadingDocuments={isLoadingDocuments}
-            onOpenDocument={handleOpenDocument}
-            onDeleteDocument={handleDeleteDocument}
-            onChangeDocumentFolder={handleChangeDocumentFolder}
-          />
-
-          <SharedDocumentsPanel
-            sharedDocuments={sharedDocuments}
-            documentIdFromUrl={activeDocumentId}
-            onOpenDocument={handleOpenDocument}
-          />
         </aside>
 
         <main className="editor-main">

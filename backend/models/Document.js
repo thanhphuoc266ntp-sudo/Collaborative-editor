@@ -57,7 +57,6 @@ const documentSchema = new mongoose.Schema(
 
     folderId: {
       type: String,
-      enum: ["web-project", "crypto", "notes"],
       default: "web-project",
       index: true,
     },

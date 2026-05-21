@@ -20,13 +20,21 @@ const normalizeTitle = (title) => {
 };
 
 const normalizeFolderId = (folderId) => {
-  const validFolders = ["web-project", "crypto", "notes"];
+  const defaultFolderId = "web-project";
 
-  if (validFolders.includes(folderId)) {
-    return folderId;
+  if (!folderId || !String(folderId).trim()) {
+    return defaultFolderId;
   }
 
-  return "web-project";
+  const value = String(folderId).trim();
+
+  const isSafeFolderId = /^[a-zA-Z0-9_-]{1,80}$/.test(value);
+
+  if (!isSafeFolderId) {
+    return defaultFolderId;
+  }
+
+  return value;
 };
 
 const normalizeRole = (role) => {

@@ -32,6 +32,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/documents", require("./routes/document"));
+app.use("/api/folders", require("./routes/folder"));
 
 const server = http.createServer(app);
 

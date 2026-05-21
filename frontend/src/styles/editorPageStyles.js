@@ -502,6 +502,243 @@ body {
   line-height: 1.6;
 }
 
+/* Sidebar collapse sections */
+.sidebar-collapse-title {
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  background: #ffffff;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: left;
+  transition: 0.2s ease;
+}
+
+.sidebar-collapse-title:hover {
+  background: #f3f4f6;
+}
+
+.sidebar-collapse-title.active {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.sidebar-collapse-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar-collapse-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #e0e7ff;
+  color: #3730a3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-arrow {
+  color: #6b7280;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-content {
+  margin-top: 10px;
+  margin-bottom: 16px;
+  animation: sidebarSectionFade 0.16s ease;
+}
+
+@keyframes sidebarSectionFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Folder panel */
+.folder-panel {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fafafa;
+}
+
+.folder-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.folder-panel-header > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.folder-panel-header strong {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.folder-panel-header span {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.folder-create-toggle {
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.folder-create-toggle:hover {
+  background: #4338ca;
+}
+
+.folder-create-box {
+  padding: 10px;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  background: #ffffff;
+  margin-bottom: 12px;
+}
+
+.folder-create-input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  outline: none;
+  color: #111827;
+  font-size: 14px;
+  padding: 0 10px;
+}
+
+.folder-create-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.folder-create-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.folder-create-confirm,
+.folder-create-cancel {
+  flex: 1;
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.folder-create-confirm {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.folder-create-confirm:hover {
+  background: #4338ca;
+}
+
+.folder-create-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.folder-create-cancel:hover {
+  background: #e5e7eb;
+}
+
+.folder-panel .folder-list {
+  margin-top: 0;
+  gap: 10px;
+}
+
+.folder-panel .folder-card {
+  min-height: 72px;
+  padding: 12px 42px 12px 12px;
+  position: relative;
+}
+
+.folder-delete-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  transform: translateY(-50%);
+  border-radius: 8px;
+  color: #ef4444;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  opacity: 0;
+  transition: 0.2s ease;
+}
+
+.folder-card:hover .folder-delete-btn {
+  opacity: 1;
+}
+
+.folder-delete-btn:hover {
+  background: #fee2e2;
+}
+
+.sidebar-section {
+  gap: 10px;
+}
+
+.document-list-section,
+.shared-documents-section {
+  margin-top: 0;
+}
+
+.sidebar-collapse-content .document-list-section,
+.sidebar-collapse-content .shared-documents-section {
+  margin-top: 0;
+}
+
 @media (max-width: 980px) {
   .editor-page {
     flex-direction: column;
@@ -546,6 +783,23 @@ body {
   .document-title-input {
     width: 100%;
     max-width: 100%;
+  }
+
+  .sidebar-collapse-title {
+    min-height: 46px;
+    font-size: 15px;
+  }
+
+  .folder-panel {
+    padding: 10px;
+  }
+
+  .folder-panel .folder-card {
+    min-height: 66px;
+  }
+
+  .folder-delete-btn {
+    opacity: 1;
   }
 }
 `;

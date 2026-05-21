@@ -2,7 +2,7 @@ import React from "react";
 import DocumentListItem from "./DocumentListItem";
 
 function SharedDocumentsPanel({
-  sharedDocuments,
+  sharedDocuments = [],
   documentIdFromUrl,
   onOpenDocument,
 }) {
@@ -19,15 +19,19 @@ function SharedDocumentsPanel({
         </div>
       ) : (
         <div className="document-list">
-          {sharedDocuments.map((doc) => (
-            <DocumentListItem
-              key={doc._id}
-              document={doc}
-              active={documentIdFromUrl === doc._id}
-              type="shared"
-              onOpen={() => onOpenDocument(doc._id)}
-            />
-          ))}
+          {sharedDocuments.map((doc) => {
+            const documentId = doc._id || doc.id;
+
+            return (
+              <DocumentListItem
+                key={documentId}
+                document={doc}
+                active={documentIdFromUrl === documentId}
+                type="shared"
+                onOpen={() => onOpenDocument(documentId)}
+              />
+            );
+          })}
         </div>
       )}
     </div>
