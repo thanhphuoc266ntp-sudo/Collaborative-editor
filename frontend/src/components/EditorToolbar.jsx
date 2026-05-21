@@ -56,7 +56,7 @@ const EditorToolbar = ({
         ? "Editor"
         : "Viewer";
 
-  const applyStoredMarks = () => {
+  const applyTypingMarks = () => {
     if (!canEdit) return;
 
     const { view } = editor;
@@ -89,6 +89,8 @@ const EditorToolbar = ({
     const nextActive = Boolean(activeMarksRef.current[markName]);
     const marks = buildMarks(schema);
 
+    view.focus();
+
     if (!selection.empty) {
       let transaction = state.tr;
 
@@ -110,17 +112,17 @@ const EditorToolbar = ({
 
       view.dispatch(transaction);
       view.focus();
-
-      forceUpdate((value) => value + 1);
-      return;
+    } else {
+      view.dispatch(state.tr.setStoredMarks(marks));
+      view.focus();
     }
 
-    const transaction = state.tr.setStoredMarks(marks);
-
-    view.dispatch(transaction);
-    view.focus();
-
     forceUpdate((value) => value + 1);
+
+    requestAnimationFrame(() => {
+      applyTypingMarks();
+      forceUpdate((value) => value + 1);
+    });
   };
 
   const runBlockCommand = (callback) => {
@@ -130,7 +132,7 @@ const EditorToolbar = ({
 
     requestAnimationFrame(() => {
       editor.view.focus();
-      applyStoredMarks();
+      applyTypingMarks();
       forceUpdate((value) => value + 1);
     });
   };
