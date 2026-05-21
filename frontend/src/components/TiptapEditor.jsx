@@ -9,6 +9,18 @@ import Collaboration from "@tiptap/extension-collaboration";
 import EditorToolbar from "./EditorToolbar";
 import "./editorStyles";
 
+const SafeBold = Bold.extend({
+  inclusive: false,
+});
+
+const SafeItalic = Italic.extend({
+  inclusive: false,
+});
+
+const SafeUnderline = Underline.extend({
+  inclusive: false,
+});
+
 const TiptapEditor = ({
   ydoc,
   provider,
@@ -52,9 +64,9 @@ const TiptapEditor = ({
           bold: false,
           italic: false,
         }),
-        Bold,
-        Italic,
-        Underline,
+        SafeBold,
+        SafeItalic,
+        SafeUnderline,
         Collaboration.configure({
           document: ydoc,
         }),
@@ -74,7 +86,6 @@ const TiptapEditor = ({
           const { state } = view;
           const { schema } = state;
           const marks = buildMarks(schema);
-
           const textNode = schema.text(text, marks);
 
           let transaction = state.tr.replaceWith(from, to, textNode);
