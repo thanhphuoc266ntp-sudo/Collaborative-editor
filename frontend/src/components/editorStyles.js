@@ -132,6 +132,73 @@ const editorStyles = `
   padding: 24px;
   color: #374151;
 }
+
+.viewer-readonly-banner {
+  padding: 10px 16px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Collaboration cursor */
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: 2px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.55em;
+  left: -2px;
+  padding: 4px 8px;
+  border-radius: 9px 9px 9px 0;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+  z-index: 50;
+}
+
+.collaboration-cursor__label::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid currentColor;
+  border-right: 5px solid transparent;
+  opacity: 0;
+}
+
+@media (max-width: 900px) {
+  .editor-scroll {
+    padding: 18px 10px;
+  }
+
+  .a4-page {
+    width: 100%;
+    min-height: calc(100vh - 160px);
+    padding: 42px 28px;
+    border-radius: 10px;
+  }
+
+  .tiptap-editor-content,
+  .ProseMirror {
+    min-height: calc(100vh - 260px);
+  }
+}
 `;
 
 if (!document.getElementById("editor-styles")) {
