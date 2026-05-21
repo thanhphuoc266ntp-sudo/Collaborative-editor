@@ -20,6 +20,7 @@ const EditorToolbar = ({
     ...DEFAULT_MARKS,
   });
 
+  const explicitSelectionRef = useRef(null);
   const marksRef = activeMarksRef || fallbackMarksRef;
   const [, forceUpdate] = useState(0);
 
@@ -27,6 +28,29 @@ const EditorToolbar = ({
     if (!editor) return;
 
     const updateToolbar = () => {
+      const { state } = editor.view;
+      const { selection } = state;
+
+      const domSelection = window.getSelection();
+      const selectedTextInDom = domSelection ? domSelection.toString() : "";
+      const selectedTextInDoc = selection.empty
+        ? ""
+        : state.doc.textBetween(selection.from, selection.to, "", "");
+
+      const hasExplicitSelection =
+        !selection.empty &&
+        selectedTextInDoc.trim().length > 0 &&
+        selectedTextInDom.trim().length > 0;
+
+      explicitSelectionRef.current = hasExplicitSelection
+        ? {
+            from: selection.from,
+            to: selection.to,
+            text: selectedTextInDoc,
+            time: Date.now(),
+          }
+        : null;
+
       forceUpdate((value) => value + 1);
     };
 
@@ -54,6 +78,7 @@ const EditorToolbar = ({
       ...DEFAULT_MARKS,
     };
 
+    explicitSelectionRef.current = null;
     forceUpdate((value) => value + 1);
   }, [canEdit, marksRef]);
 
@@ -100,15 +125,45 @@ const EditorToolbar = ({
     return marks;
   };
 
-  const collapseToCursor = () => {
+  const getExplicitSelectionRange = () => {
+    const savedSelection = explicitSelectionRef.current;
+
+    if (!savedSelection) return null;
+
+    const isFresh = Date.now() - savedSelection.time < 1500;
+
+    if (!isFresh) return null;
+
+    const { state } = editor.view;
+    const { from, to, text } = savedSelection;
+
+    if (from < 0 || to > state.doc.content.size || from >= to) {
+      return null;
+    }
+
+    const currentText = state.doc.textBetween(from, to, "", "");
+
+    if (currentText !== text) {
+      return null;
+    }
+
+    return {
+      from,
+      to,
+    };
+  };
+
+  const collapseToPosition = (position) => {
     const { view } = editor;
     const { state } = view;
-    const { selection } = state;
 
-    const position = selection.to;
+    const safePosition = Math.max(
+      0,
+      Math.min(position, state.doc.content.size),
+    );
 
     const transaction = state.tr.setSelection(
-      TextSelection.create(state.doc, position),
+      TextSelection.create(state.doc, safePosition),
     );
 
     view.dispatch(transaction);
@@ -132,25 +187,61 @@ const EditorToolbar = ({
     const { view } = editor;
     const { state } = view;
     const { schema } = state;
+    const { selection } = state;
 
+    const position = selection.to;
     const boundary = schema.text("\u200B", []);
 
-    let transaction = state.tr.replaceSelectionWith(boundary, false);
-    const position = transaction.selection.to;
+    let transaction = state.tr
+      .setSelection(TextSelection.create(state.doc, position))
+      .replaceSelectionWith(boundary, false);
+
+    const nextPosition = transaction.selection.to;
 
     transaction = transaction
-      .setSelection(TextSelection.create(transaction.doc, position))
+      .setSelection(TextSelection.create(transaction.doc, nextPosition))
       .setStoredMarks(marks);
 
     view.dispatch(transaction);
     view.focus();
   };
 
+  const formatExplicitSelection = (range, markName, nextActive, marks) => {
+    const { view } = editor;
+    const { state } = view;
+    const markType = state.schema.marks[markName];
+
+    if (!markType) return false;
+
+    let transaction = state.tr;
+
+    if (nextActive) {
+      transaction = transaction.addMark(
+        range.from,
+        range.to,
+        markType.create(),
+      );
+    } else {
+      transaction = transaction.removeMark(range.from, range.to, markType);
+    }
+
+    transaction = transaction
+      .setSelection(TextSelection.create(transaction.doc, range.to))
+      .setStoredMarks(marks);
+
+    view.dispatch(transaction);
+    view.focus();
+
+    explicitSelectionRef.current = null;
+    forceUpdate((value) => value + 1);
+
+    return true;
+  };
+
   const toggleTypingMark = (markName) => {
     if (!canEdit) return;
 
-    const { view } = editor;
-    const { state } = view;
+    const { state } = editor.view;
     const { schema } = state;
     const markType = schema.marks[markName];
 
@@ -165,11 +256,27 @@ const EditorToolbar = ({
     });
 
     const nextMarks = getCurrentMarks();
+    const nextActive = Boolean(nextMarks[markName]);
     const marks = getBuiltMarks(schema);
+    const explicitRange = getExplicitSelectionRange();
 
-    collapseToCursor();
+    if (explicitRange) {
+      const didFormatSelection = formatExplicitSelection(
+        explicitRange,
+        markName,
+        nextActive,
+        marks,
+      );
 
-    if (wasActive && !nextMarks[markName]) {
+      if (didFormatSelection) return;
+    }
+
+    const currentState = editor.view.state;
+    const cursorPosition = currentState.selection.to;
+
+    collapseToPosition(cursorPosition);
+
+    if (wasActive && !nextActive) {
       insertFormatBoundary(marks);
     } else {
       const nextState = editor.view.state;
