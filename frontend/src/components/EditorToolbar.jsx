@@ -106,14 +106,34 @@ const EditorToolbar = ({
 
     if (selection.empty) return false;
 
-    const selectedText = state.doc.textBetween(
+    const selectedTextInDoc = state.doc.textBetween(
       selection.from,
       selection.to,
       "",
       "",
     );
 
-    return selectedText.length > 0;
+    const domSelection = window.getSelection();
+    const selectedTextInDom = domSelection ? domSelection.toString() : "";
+
+    return (
+      selectedTextInDoc.trim().length > 0 && selectedTextInDom.trim().length > 0
+    );
+  };
+
+  const collapseToSafeCursor = () => {
+    const { view } = editor;
+    const { state } = view;
+    const { selection } = state;
+
+    const position = selection.to;
+
+    const transaction = state.tr.setSelection(
+      TextSelection.create(state.doc, position),
+    );
+
+    view.dispatch(transaction);
+    view.focus();
   };
 
   const applyStoredMarksOnly = () => {
@@ -195,11 +215,14 @@ const EditorToolbar = ({
       return;
     }
 
+    collapseToSafeCursor();
+
     if (wasActive && !nextActive) {
       insertFormatBoundary(marks);
     } else {
-      view.dispatch(state.tr.setStoredMarks(marks));
-      view.focus();
+      const nextState = editor.view.state;
+      editor.view.dispatch(nextState.tr.setStoredMarks(marks));
+      editor.view.focus();
     }
 
     forceUpdate((value) => value + 1);

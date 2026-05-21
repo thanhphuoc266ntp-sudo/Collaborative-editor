@@ -325,7 +325,15 @@ function Editor() {
         throw new Error("Backend không trả về _id hợp lệ khi tạo tài liệu.");
       }
 
-      await loadDocuments();
+      setDocuments((prevDocuments) => {
+        const existed = prevDocuments.some((doc) => {
+          return String(doc._id || doc.id) === String(newDocumentId);
+        });
+
+        if (existed) return prevDocuments;
+
+        return [newDocument, ...prevDocuments];
+      });
 
       navigate(`/editor/${newDocumentId}`);
     } catch (error) {
