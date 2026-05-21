@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { TextSelection } from "@tiptap/pm/state";
 import ToolbarButton from "./ToolbarButton";
 
 const EditorToolbar = ({
   editor,
   status,
-  activeMarksRef,
-  buildMarks,
   canEdit = false,
   myRole = "viewer",
 }) => {
@@ -36,18 +33,6 @@ const EditorToolbar = ({
     };
   }, [editor]);
 
-  useEffect(() => {
-    if (canEdit) return;
-
-    activeMarksRef.current = {
-      bold: false,
-      italic: false,
-      underline: false,
-    };
-
-    forceUpdate((value) => value + 1);
-  }, [canEdit, activeMarksRef]);
-
   if (!editor) return null;
 
   const roleLabel =
@@ -57,101 +42,7 @@ const EditorToolbar = ({
         ? "Editor"
         : "Viewer";
 
-  const applyTypingMarks = () => {
-    if (!canEdit) return;
-
-    const { view } = editor;
-    const { state } = view;
-    const marks = buildMarks(state.schema);
-
-    const transaction = state.tr.setStoredMarks(marks);
-
-    view.dispatch(transaction);
-    view.focus();
-  };
-
-  const insertZeroWidthBoundary = () => {
-    if (!canEdit) return;
-
-    const { view } = editor;
-    const { state } = view;
-    const { schema } = state;
-
-    const boundary = schema.text("\u200B", []);
-    const marks = buildMarks(schema);
-
-    let transaction = state.tr.replaceSelectionWith(boundary, false);
-    const position = transaction.selection.to;
-
-    transaction = transaction
-      .setSelection(TextSelection.create(transaction.doc, position))
-      .setStoredMarks(marks);
-
-    view.dispatch(transaction);
-    view.focus();
-  };
-
-  const toggleTypingMark = (markName) => {
-    if (!canEdit) return;
-
-    const { view } = editor;
-    const { state } = view;
-    const { selection, schema } = state;
-    const markType = schema.marks[markName];
-
-    if (!markType) return;
-
-    const wasActive = Boolean(activeMarksRef.current[markName]);
-
-    activeMarksRef.current = {
-      ...activeMarksRef.current,
-      [markName]: !wasActive,
-    };
-
-    const nextActive = Boolean(activeMarksRef.current[markName]);
-    const marks = buildMarks(schema);
-
-    view.focus();
-
-    if (!selection.empty) {
-      let transaction = state.tr;
-
-      if (nextActive) {
-        transaction = transaction.addMark(
-          selection.from,
-          selection.to,
-          markType.create(),
-        );
-      } else {
-        transaction = transaction.removeMark(
-          selection.from,
-          selection.to,
-          markType,
-        );
-      }
-
-      transaction = transaction.setStoredMarks(marks);
-
-      view.dispatch(transaction);
-      view.focus();
-    } else {
-      view.dispatch(state.tr.setStoredMarks(marks));
-      view.focus();
-
-      if (wasActive && !nextActive) {
-        insertZeroWidthBoundary();
-      }
-    }
-
-    forceUpdate((value) => value + 1);
-
-    requestAnimationFrame(() => {
-      applyTypingMarks();
-      forceUpdate((value) => value + 1);
-    });
-  };
-
-  const runBlockCommand = (callback) => {
+  const runEditorCommand = (callback) => {
     if (!canEdit) return;
 
     callback();
@@ -162,37 +53,37 @@ const EditorToolbar = ({
     });
   };
 
-  const isMarkActive = (markName) => {
-    if (!canEdit) return false;
-
-    return Boolean(activeMarksRef.current[markName]);
-  };
-
   return (
     <div className={canEdit ? "toolbar" : "toolbar readonly-toolbar"}>
       <ToolbarButton
         title={canEdit ? "In đậm" : "Viewer không có quyền chỉnh sửa"}
-        active={isMarkActive("bold")}
+        active={editor.isActive("bold")}
         disabled={!canEdit}
-        onRun={() => toggleTypingMark("bold")}
+        onRun={() =>
+          runEditorCommand(() => editor.chain().focus().toggleBold().run())
+        }
       >
         <b>B</b>
       </ToolbarButton>
 
       <ToolbarButton
         title={canEdit ? "In nghiêng" : "Viewer không có quyền chỉnh sửa"}
-        active={isMarkActive("italic")}
+        active={editor.isActive("italic")}
         disabled={!canEdit}
-        onRun={() => toggleTypingMark("italic")}
+        onRun={() =>
+          runEditorCommand(() => editor.chain().focus().toggleItalic().run())
+        }
       >
         <i>I</i>
       </ToolbarButton>
 
       <ToolbarButton
         title={canEdit ? "Gạch chân" : "Viewer không có quyền chỉnh sửa"}
-        active={isMarkActive("underline")}
+        active={editor.isActive("underline")}
         disabled={!canEdit}
-        onRun={() => toggleTypingMark("underline")}
+        onRun={() =>
+          runEditorCommand(() => editor.chain().focus().toggleUnderline().run())
+        }
       >
         <u>U</u>
       </ToolbarButton>
@@ -201,11 +92,11 @@ const EditorToolbar = ({
 
       <ToolbarButton
         title={canEdit ? "Tiêu đề H1" : "Viewer không có quyền chỉnh sửa"}
-        active={canEdit && editor.isActive("heading", { level: 1 })}
+        active={editor.isActive("heading", { level: 1 })}
         className="text-btn"
         disabled={!canEdit}
         onRun={() =>
-          runBlockCommand(() =>
+          runEditorCommand(() =>
             editor.chain().focus().toggleHeading({ level: 1 }).run(),
           )
         }
@@ -215,11 +106,11 @@ const EditorToolbar = ({
 
       <ToolbarButton
         title={canEdit ? "Tiêu đề H2" : "Viewer không có quyền chỉnh sửa"}
-        active={canEdit && editor.isActive("heading", { level: 2 })}
+        active={editor.isActive("heading", { level: 2 })}
         className="text-btn"
         disabled={!canEdit}
         onRun={() =>
-          runBlockCommand(() =>
+          runEditorCommand(() =>
             editor.chain().focus().toggleHeading({ level: 2 }).run(),
           )
         }
@@ -231,11 +122,13 @@ const EditorToolbar = ({
 
       <ToolbarButton
         title={canEdit ? "Danh sách" : "Viewer không có quyền chỉnh sửa"}
-        active={canEdit && editor.isActive("bulletList")}
+        active={editor.isActive("bulletList")}
         className="text-btn"
         disabled={!canEdit}
         onRun={() =>
-          runBlockCommand(() => editor.chain().focus().toggleBulletList().run())
+          runEditorCommand(() =>
+            editor.chain().focus().toggleBulletList().run(),
+          )
         }
       >
         • Danh sách
