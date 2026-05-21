@@ -52,7 +52,8 @@ body {
   line-height: 1;
   margin: 0;
   color: #111827;
-  font-weight: 800;
+  font-weight: 750;
+  letter-spacing: -0.8px;
 }
 
 .create-document-btn {
@@ -327,8 +328,9 @@ body {
   outline: none;
   background: transparent;
   color: #111827;
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.4px;
   padding: 4px 0;
 }
 
@@ -338,8 +340,9 @@ body {
 
 .document-title-placeholder {
   color: #111827;
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.4px;
 }
 
 .document-save-status {
@@ -508,7 +511,8 @@ body {
   border-radius: 10px;
   cursor: pointer;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: -0.15px;
   text-align: left;
   transition: 0.2s ease;
 }
