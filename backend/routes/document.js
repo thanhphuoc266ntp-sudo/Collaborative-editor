@@ -113,15 +113,21 @@ const addCollaboratorIfMissing = async (document, userId, role = "viewer") => {
     return document;
   }
 
+  const nextRole = normalizeRole(role);
   const existedCollaborator = findCollaborator(document, userId);
 
   if (existedCollaborator) {
+    if (existedCollaborator.role !== nextRole) {
+      existedCollaborator.role = nextRole;
+      await document.save();
+    }
+
     return document;
   }
 
   document.collaborators.push({
     user: userId,
-    role: normalizeRole(role),
+    role: nextRole,
   });
 
   await document.save();
@@ -347,6 +353,16 @@ router.get("/:documentId", auth, async (req, res) => {
           message: "Bạn không có quyền truy cập tài liệu này.",
         });
       }
+    } else if (!isOwner(document, userId) && document.shareLink?.enabled) {
+      await addCollaboratorIfMissing(
+        document,
+        userId,
+        document.shareLink.role || "viewer",
+      );
+
+      document = await Document.findById(documentId)
+        .populate("owner", "name email username displayName")
+        .populate("collaborators.user", "name email username displayName");
     }
 
     const permission = getDocumentPermission(document, userId);
