@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
@@ -9,7 +9,13 @@ import Collaboration from "@tiptap/extension-collaboration";
 import EditorToolbar from "./EditorToolbar";
 import "./editorStyles";
 
-const TiptapEditor = ({ ydoc, provider, status }) => {
+const TiptapEditor = ({
+  ydoc,
+  provider,
+  status,
+  canEdit = false,
+  myRole = "viewer",
+}) => {
   const activeMarksRef = useRef({
     bold: false,
     italic: false,
@@ -18,6 +24,10 @@ const TiptapEditor = ({ ydoc, provider, status }) => {
 
   const buildMarks = (schema) => {
     const marks = [];
+
+    if (!canEdit) {
+      return marks;
+    }
 
     if (activeMarksRef.current.bold && schema.marks.bold) {
       marks.push(schema.marks.bold.create());
@@ -57,6 +67,10 @@ const TiptapEditor = ({ ydoc, provider, status }) => {
         },
 
         handleTextInput(view, from, to, text) {
+          if (!canEdit) {
+            return true;
+          }
+
           const { state } = view;
           const { schema } = state;
           const marks = buildMarks(schema);
@@ -75,13 +89,51 @@ const TiptapEditor = ({ ydoc, provider, status }) => {
 
           return true;
         },
+
+        handleKeyDown() {
+          if (!canEdit) {
+            return true;
+          }
+
+          return false;
+        },
+
+        handlePaste() {
+          if (!canEdit) {
+            return true;
+          }
+
+          return false;
+        },
+
+        handleDrop() {
+          if (!canEdit) {
+            return true;
+          }
+
+          return false;
+        },
       },
 
-      autofocus: true,
-      editable: Boolean(ydoc && provider),
+      autofocus: canEdit,
+      editable: Boolean(ydoc && provider && canEdit),
     },
-    [ydoc, provider],
+    [ydoc, provider, canEdit],
   );
+
+  useEffect(() => {
+    if (!editor) return;
+
+    editor.setEditable(Boolean(ydoc && provider && canEdit));
+
+    if (!canEdit) {
+      activeMarksRef.current = {
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+    }
+  }, [editor, ydoc, provider, canEdit]);
 
   if (!ydoc || !provider) {
     return <div className="editor-loading">Đang kết nối tài liệu...</div>;
@@ -98,7 +150,16 @@ const TiptapEditor = ({ ydoc, provider, status }) => {
         status={status}
         activeMarksRef={activeMarksRef}
         buildMarks={buildMarks}
+        canEdit={canEdit}
+        myRole={myRole}
       />
+
+      {!canEdit && (
+        <div className="viewer-readonly-banner">
+          Bạn đang xem tài liệu với quyền Viewer. Bạn chỉ có thể xem, không thể
+          chỉnh sửa.
+        </div>
+      )}
 
       <div className="editor-scroll">
         <div className="a4-page">

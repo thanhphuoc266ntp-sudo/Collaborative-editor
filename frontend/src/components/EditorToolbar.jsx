@@ -2,7 +2,14 @@ import React, { useEffect, useState } from "react";
 import { TextSelection } from "@tiptap/pm/state";
 import ToolbarButton from "./ToolbarButton";
 
-const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
+const EditorToolbar = ({
+  editor,
+  status,
+  activeMarksRef,
+  buildMarks,
+  canEdit = false,
+  myRole = "viewer",
+}) => {
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -29,9 +36,30 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
     };
   }, [editor]);
 
+  useEffect(() => {
+    if (canEdit) return;
+
+    activeMarksRef.current = {
+      bold: false,
+      italic: false,
+      underline: false,
+    };
+
+    forceUpdate((value) => value + 1);
+  }, [canEdit, activeMarksRef]);
+
   if (!editor) return null;
 
+  const roleLabel =
+    myRole === "owner"
+      ? "Chủ sở hữu"
+      : myRole === "editor"
+        ? "Editor"
+        : "Viewer";
+
   const applyTypingMarks = () => {
+    if (!canEdit) return;
+
     const { view } = editor;
     const { state } = view;
     const marks = buildMarks(state.schema);
@@ -43,6 +71,8 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
   };
 
   const insertZeroWidthBoundary = () => {
+    if (!canEdit) return;
+
     const { view } = editor;
     const { state } = view;
     const { schema } = state;
@@ -62,6 +92,8 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
   };
 
   const toggleTypingMark = (markName) => {
+    if (!canEdit) return;
+
     const { view } = editor;
     const { state } = view;
     const { selection, schema } = state;
@@ -120,6 +152,8 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
   };
 
   const runBlockCommand = (callback) => {
+    if (!canEdit) return;
+
     callback();
 
     requestAnimationFrame(() => {
@@ -129,30 +163,35 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
   };
 
   const isMarkActive = (markName) => {
+    if (!canEdit) return false;
+
     return Boolean(activeMarksRef.current[markName]);
   };
 
   return (
-    <div className="toolbar">
+    <div className={canEdit ? "toolbar" : "toolbar readonly-toolbar"}>
       <ToolbarButton
-        title="In đậm"
+        title={canEdit ? "In đậm" : "Viewer không có quyền chỉnh sửa"}
         active={isMarkActive("bold")}
+        disabled={!canEdit}
         onRun={() => toggleTypingMark("bold")}
       >
         <b>B</b>
       </ToolbarButton>
 
       <ToolbarButton
-        title="In nghiêng"
+        title={canEdit ? "In nghiêng" : "Viewer không có quyền chỉnh sửa"}
         active={isMarkActive("italic")}
+        disabled={!canEdit}
         onRun={() => toggleTypingMark("italic")}
       >
         <i>I</i>
       </ToolbarButton>
 
       <ToolbarButton
-        title="Gạch chân"
+        title={canEdit ? "Gạch chân" : "Viewer không có quyền chỉnh sửa"}
         active={isMarkActive("underline")}
+        disabled={!canEdit}
         onRun={() => toggleTypingMark("underline")}
       >
         <u>U</u>
@@ -161,9 +200,10 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
       <div className="divider"></div>
 
       <ToolbarButton
-        title="Tiêu đề H1"
-        active={editor.isActive("heading", { level: 1 })}
+        title={canEdit ? "Tiêu đề H1" : "Viewer không có quyền chỉnh sửa"}
+        active={canEdit && editor.isActive("heading", { level: 1 })}
         className="text-btn"
+        disabled={!canEdit}
         onRun={() =>
           runBlockCommand(() =>
             editor.chain().focus().toggleHeading({ level: 1 }).run(),
@@ -174,9 +214,10 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
       </ToolbarButton>
 
       <ToolbarButton
-        title="Tiêu đề H2"
-        active={editor.isActive("heading", { level: 2 })}
+        title={canEdit ? "Tiêu đề H2" : "Viewer không có quyền chỉnh sửa"}
+        active={canEdit && editor.isActive("heading", { level: 2 })}
         className="text-btn"
+        disabled={!canEdit}
         onRun={() =>
           runBlockCommand(() =>
             editor.chain().focus().toggleHeading({ level: 2 }).run(),
@@ -189,9 +230,10 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
       <div className="divider"></div>
 
       <ToolbarButton
-        title="Danh sách"
-        active={editor.isActive("bulletList")}
+        title={canEdit ? "Danh sách" : "Viewer không có quyền chỉnh sửa"}
+        active={canEdit && editor.isActive("bulletList")}
         className="text-btn"
+        disabled={!canEdit}
         onRun={() =>
           runBlockCommand(() => editor.chain().focus().toggleBulletList().run())
         }
@@ -199,7 +241,10 @@ const EditorToolbar = ({ editor, status, activeMarksRef, buildMarks }) => {
         • Danh sách
       </ToolbarButton>
 
-      <div className="save-status">{status}</div>
+      <div className="save-status">
+        {status}
+        {!canEdit && ` · ${roleLabel} chỉ xem`}
+      </div>
     </div>
   );
 };

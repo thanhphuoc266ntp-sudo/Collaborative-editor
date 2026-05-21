@@ -47,6 +47,129 @@ const isValidMongoId = (id) => {
   return /^[a-f\d]{24}$/i.test(String(id || ""));
 };
 
+const getStoredUserId = () => {
+  const possibleKeys = ["user", "currentUser", "authUser"];
+
+  for (const key of possibleKeys) {
+    try {
+      const rawValue = localStorage.getItem(key);
+
+      if (!rawValue) continue;
+
+      const parsedValue = JSON.parse(rawValue);
+
+      const id =
+        parsedValue?._id ||
+        parsedValue?.id ||
+        parsedValue?.userId ||
+        parsedValue?.data?._id ||
+        parsedValue?.data?.id ||
+        parsedValue?.user?._id ||
+        parsedValue?.user?.id ||
+        null;
+
+      if (id) return String(id);
+    } catch {
+      const rawValue = localStorage.getItem(key);
+
+      if (isValidMongoId(rawValue)) {
+        return String(rawValue);
+      }
+    }
+  }
+
+  const directId =
+    localStorage.getItem("userId") ||
+    localStorage.getItem("_id") ||
+    localStorage.getItem("id") ||
+    null;
+
+  return directId ? String(directId) : null;
+};
+
+const getIdValue = (value) => {
+  return String(value?._id || value?.id || value || "");
+};
+
+const normalizeDocumentResponse = (response) => {
+  const document = response?.document || response || null;
+
+  return {
+    document,
+    myRole: response?.myRole || document?.myRole || null,
+    canEdit:
+      typeof response?.canEdit === "boolean"
+        ? response.canEdit
+        : typeof document?.canEdit === "boolean"
+          ? document.canEdit
+          : null,
+    canView:
+      typeof response?.canView === "boolean"
+        ? response.canView
+        : typeof document?.canView === "boolean"
+          ? document.canView
+          : null,
+  };
+};
+
+const getCurrentUserPermission = (document, apiPermission = {}) => {
+  if (apiPermission.myRole || typeof apiPermission.canEdit === "boolean") {
+    const role = apiPermission.myRole || "viewer";
+
+    return {
+      myRole: role,
+      canEdit: Boolean(apiPermission.canEdit),
+      canView:
+        typeof apiPermission.canView === "boolean"
+          ? apiPermission.canView
+          : true,
+    };
+  }
+
+  const currentUserId = getStoredUserId();
+
+  if (!document || !currentUserId) {
+    return {
+      myRole: "viewer",
+      canEdit: false,
+      canView: true,
+    };
+  }
+
+  const ownerId = getIdValue(document.owner);
+
+  if (ownerId === String(currentUserId)) {
+    return {
+      myRole: "owner",
+      canEdit: true,
+      canView: true,
+    };
+  }
+
+  const collaborator = Array.isArray(document.collaborators)
+    ? document.collaborators.find((item) => {
+        const collaboratorId = getIdValue(item.user);
+        return collaboratorId === String(currentUserId);
+      })
+    : null;
+
+  const role = collaborator?.role === "editor" ? "editor" : "viewer";
+
+  return {
+    myRole: role,
+    canEdit: role === "editor",
+    canView: Boolean(collaborator),
+  };
+};
+
+const getDefaultPermission = () => {
+  return {
+    myRole: "viewer",
+    canEdit: false,
+    canView: false,
+  };
+};
+
 function Editor() {
   const { documentId: documentIdFromUrl } = useParams();
   const navigate = useNavigate();
@@ -55,6 +178,9 @@ function Editor() {
   const [sharedDocuments, setSharedDocuments] = useState([]);
   const [selectedFolderId, setSelectedFolderId] = useState("all");
   const [currentDocument, setCurrentDocument] = useState(null);
+  const [currentPermission, setCurrentPermission] = useState(
+    getDefaultPermission(),
+  );
   const [title, setTitle] = useState("");
   const [shareRole, setShareRole] = useState("viewer");
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
@@ -72,6 +198,7 @@ function Editor() {
     "Chưa xác định";
 
   const displayUser = userName || userEmail;
+  const isCurrentOwner = currentPermission.myRole === "owner";
 
   const selectedFolder = useMemo(() => {
     return (
@@ -88,6 +215,13 @@ function Editor() {
       return folderId === selectedFolderId;
     });
   }, [documents, selectedFolderId]);
+
+  const resetCurrentDocumentState = () => {
+    setCurrentDocument(null);
+    setCurrentPermission(getDefaultPermission());
+    setTitle("");
+    setSaveStatus("Đã lưu trên đám mây");
+  };
 
   const loadDocuments = async () => {
     try {
@@ -109,16 +243,12 @@ function Editor() {
 
   const loadCurrentDocument = async () => {
     if (!documentIdFromUrl) {
-      setCurrentDocument(null);
-      setTitle("");
-      setSaveStatus("Đã lưu trên đám mây");
+      resetCurrentDocumentState();
       return;
     }
 
     if (!hasValidDocumentId) {
-      setCurrentDocument(null);
-      setTitle("");
-      setSaveStatus("Đã lưu trên đám mây");
+      resetCurrentDocumentState();
       navigate("/editor", { replace: true });
       return;
     }
@@ -126,15 +256,28 @@ function Editor() {
     try {
       setIsLoadingCurrentDocument(true);
 
-      const doc = await getDocumentById(documentIdFromUrl);
+      const response = await getDocumentById(documentIdFromUrl);
+      const normalizedResponse = normalizeDocumentResponse(response);
+      const doc = normalizedResponse.document;
 
       if (!doc || !isValidMongoId(doc._id || doc.id)) {
         throw new Error("Tài liệu trả về không hợp lệ.");
       }
 
+      const permission = getCurrentUserPermission(doc, {
+        myRole: normalizedResponse.myRole,
+        canEdit: normalizedResponse.canEdit,
+        canView: normalizedResponse.canView,
+      });
+
       setCurrentDocument(doc);
+      setCurrentPermission(permission);
       setTitle(doc.title || "Tài liệu không tên");
-      setSaveStatus("Đã lưu trên đám mây");
+      setSaveStatus(
+        permission.canEdit
+          ? "Đã lưu trên đám mây"
+          : "Bạn đang xem với quyền Viewer",
+      );
 
       if (doc.folderId) {
         setSelectedFolderId(doc.folderId);
@@ -143,10 +286,12 @@ function Editor() {
       if (doc.shareLink?.role) {
         setShareRole(doc.shareLink.role === "editor" ? "editor" : "viewer");
       }
+
       await loadDocuments();
     } catch (error) {
       console.error("Lỗi tải tài liệu hiện tại:", error);
       setCurrentDocument(null);
+      setCurrentPermission(getDefaultPermission());
       setTitle("");
       setSaveStatus("Lỗi tải tài liệu");
       alert("Không tìm thấy tài liệu hoặc bạn không có quyền truy cập.");
@@ -266,6 +411,12 @@ function Editor() {
   const handleTitleBlur = async () => {
     if (!activeDocumentId) return;
 
+    if (!currentPermission.canEdit) {
+      setTitle(currentDocument?.title || "Tài liệu không tên");
+      setSaveStatus("Viewer không có quyền đổi tên tài liệu");
+      return;
+    }
+
     const nextTitle = title.trim() || "Tài liệu không tên";
 
     if (nextTitle === currentDocument?.title) return;
@@ -297,6 +448,11 @@ function Editor() {
   const handleShareDocument = async () => {
     if (!activeDocumentId) {
       alert("Bạn cần mở hoặc tạo tài liệu trước khi chia sẻ.");
+      return;
+    }
+
+    if (!isCurrentOwner) {
+      alert("Chỉ chủ sở hữu mới được chia sẻ tài liệu.");
       return;
     }
 
@@ -426,7 +582,9 @@ function Editor() {
                 <input
                   className="document-title-input"
                   value={title}
-                  disabled={isLoadingCurrentDocument}
+                  disabled={
+                    isLoadingCurrentDocument || !currentPermission.canEdit
+                  }
                   onChange={(event) => setTitle(event.target.value)}
                   onBlur={handleTitleBlur}
                 />
@@ -445,13 +603,17 @@ function Editor() {
                   className="share-role-select"
                   value={shareRole}
                   onChange={(event) => setShareRole(event.target.value)}
-                  disabled={!activeDocumentId}
+                  disabled={!activeDocumentId || !isCurrentOwner}
                 >
                   <option value="viewer">Viewer</option>
                   <option value="editor">Editor</option>
                 </select>
 
-                <button className="share-button" onClick={handleShareDocument}>
+                <button
+                  className="share-button"
+                  onClick={handleShareDocument}
+                  disabled={!activeDocumentId || !isCurrentOwner}
+                >
                   + Chia sẻ
                 </button>
               </div>
@@ -486,7 +648,11 @@ function Editor() {
                 <p>Vui lòng chờ trong giây lát.</p>
               </div>
             ) : (
-              <EditorComponent documentId={activeDocumentId} />
+              <EditorComponent
+                documentId={activeDocumentId}
+                canEdit={currentPermission.canEdit}
+                myRole={currentPermission.myRole}
+              />
             )}
           </section>
         </main>

@@ -70,6 +70,42 @@ const canEditDocument = (document, userId) => {
   return Boolean(collaborator && collaborator.role === "editor");
 };
 
+const getDocumentPermission = (document, userId) => {
+  if (!document || !userId) {
+    return {
+      myRole: "viewer",
+      canView: false,
+      canEdit: false,
+    };
+  }
+
+  if (isOwner(document, userId)) {
+    return {
+      myRole: "owner",
+      canView: true,
+      canEdit: true,
+    };
+  }
+
+  const collaborator = findCollaborator(document, userId);
+
+  if (!collaborator) {
+    return {
+      myRole: "viewer",
+      canView: false,
+      canEdit: false,
+    };
+  }
+
+  const role = normalizeRole(collaborator.role);
+
+  return {
+    myRole: role,
+    canView: true,
+    canEdit: role === "editor",
+  };
+};
+
 const addCollaboratorIfMissing = async (document, userId, role = "viewer") => {
   if (!document || !userId) return document;
 
@@ -313,11 +349,16 @@ router.get("/:documentId", auth, async (req, res) => {
       }
     }
 
+    const permission = getDocumentPermission(document, userId);
     const safeDocument = document.toObject();
+
     delete safeDocument.yState;
 
     return res.json({
       document: safeDocument,
+      myRole: permission.myRole,
+      canView: permission.canView,
+      canEdit: permission.canEdit,
     });
   } catch (error) {
     console.error("Get document by id error:", error);
