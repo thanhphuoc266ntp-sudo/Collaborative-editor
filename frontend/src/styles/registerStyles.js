@@ -45,22 +45,22 @@ export const registerStyles = {
     color: "#2563eb",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
   },
-
   title: {
-    margin: "0 0 10px 0",
+    margin: "0 0 12px 0",
     color: "#2563eb",
-    fontSize: "38px",
-    fontWeight: "800",
-    letterSpacing: "-1.1px",
+    fontSize: "42px",
+    fontWeight: "900",
+    letterSpacing: "-1.6px",
     lineHeight: "1.05",
   },
 
   subtitle: {
     margin: "0",
     color: "#64748b",
-    fontSize: "15px",
-    fontWeight: "500",
+    fontSize: "15.5px",
+    fontWeight: "600",
     lineHeight: "1.6",
+    letterSpacing: "-0.25px",
   },
 
   errorBox: {
@@ -109,25 +109,25 @@ export const registerStyles = {
   },
 
   label: {
-    fontSize: "14px",
+    fontSize: "14.5px",
     color: "#1e293b",
-    fontWeight: "700",
-    letterSpacing: "-0.15px",
+    fontWeight: "800",
+    letterSpacing: "-0.25px",
   },
 
   input: {
     width: "100%",
     height: "54px",
-    padding: "0 16px",
-    borderRadius: "18px",
+    padding: "0 17px",
+    borderRadius: "17px",
     border: "1px solid #dbe5f1",
     backgroundColor: "#f8fafc",
     color: "#0f172a",
     outline: "none",
     boxSizing: "border-box",
-    fontSize: "15px",
+    fontSize: "15.5px",
     fontWeight: "500",
-    letterSpacing: "-0.1px",
+    letterSpacing: "-0.2px",
     transition: "all 0.2s ease",
   },
 
@@ -150,17 +150,17 @@ export const registerStyles = {
 
   submitBtn: {
     width: "100%",
-    height: "56px",
-    marginTop: "6px",
+    height: "58px",
+    marginTop: "8px",
     border: "none",
     borderRadius: "18px",
     background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
     color: "#ffffff",
-    fontSize: "17px",
-    fontWeight: "800",
-    letterSpacing: "-0.25px",
+    fontSize: "18px",
+    fontWeight: "850",
+    letterSpacing: "-0.35px",
     cursor: "pointer",
-    boxShadow: "0 14px 28px rgba(37, 99, 235, 0.24)",
+    boxShadow: "0 18px 34px rgba(37, 99, 235, 0.28)",
     transition: "all 0.2s ease",
   },
 
@@ -202,17 +202,17 @@ export const registerStyles = {
   footer: {
     marginTop: "24px",
     textAlign: "center",
-    fontSize: "14.5px",
+    fontSize: "15px",
     color: "#64748b",
-    fontWeight: "500",
-    letterSpacing: "-0.1px",
+    fontWeight: "600",
+    letterSpacing: "-0.2px",
   },
 
   link: {
     color: "#2563eb",
     textDecoration: "none",
-    fontWeight: "800",
-    letterSpacing: "-0.15px",
+    fontWeight: "850",
+    letterSpacing: "-0.25px",
   },
 
   backBtn: {
