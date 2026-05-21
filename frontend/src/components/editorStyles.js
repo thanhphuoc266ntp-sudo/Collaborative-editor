@@ -142,7 +142,8 @@ const editorStyles = `
   font-weight: 600;
 }
 
-/* Collaboration cursor */
+/* Collaboration caret / cursor */
+.collaboration-caret__caret,
 .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
@@ -153,6 +154,7 @@ const editorStyles = `
   pointer-events: none;
 }
 
+.collaboration-caret__label,
 .collaboration-cursor__label {
   position: absolute;
   top: -1.55em;
@@ -170,6 +172,7 @@ const editorStyles = `
   z-index: 50;
 }
 
+.collaboration-caret__label::after,
 .collaboration-cursor__label::after {
   content: "";
   position: absolute;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
@@ -6,8 +6,40 @@ import Bold from "@tiptap/extension-bold";
 import Italic from "@tiptap/extension-italic";
 import Underline from "@tiptap/extension-underline";
 import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import EditorToolbar from "./EditorToolbar";
 import "./editorStyles";
+
+const USER_COLORS = [
+  "#2563eb",
+  "#06b6d4",
+  "#8b5cf6",
+  "#ec4899",
+  "#f97316",
+  "#10b981",
+  "#ef4444",
+  "#6366f1",
+];
+
+const getStoredUserName = () => {
+  return (
+    localStorage.getItem("userName") ||
+    localStorage.getItem("userEmail") ||
+    localStorage.getItem("email") ||
+    "Người dùng"
+  );
+};
+
+const getUserColor = (name) => {
+  const text = String(name || "Người dùng");
+  let hash = 0;
+
+  for (let i = 0; i < text.length; i += 1) {
+    hash = text.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return USER_COLORS[Math.abs(hash) % USER_COLORS.length];
+};
 
 const TiptapEditor = ({
   ydoc,
@@ -21,6 +53,15 @@ const TiptapEditor = ({
     italic: false,
     underline: false,
   });
+
+  const currentUser = useMemo(() => {
+    const name = getStoredUserName();
+
+    return {
+      name,
+      color: getUserColor(name),
+    };
+  }, []);
 
   const buildMarks = (schema) => {
     const marks = [];
@@ -44,22 +85,37 @@ const TiptapEditor = ({
     return marks;
   };
 
+  const editorExtensions = useMemo(() => {
+    const extensions = [
+      StarterKit.configure({
+        history: false,
+        bold: false,
+        italic: false,
+        underline: false,
+      }),
+      Bold,
+      Italic,
+      Underline,
+      Collaboration.configure({
+        document: ydoc,
+      }),
+    ];
+
+    if (provider?.awareness) {
+      extensions.push(
+        CollaborationCaret.configure({
+          provider,
+          user: currentUser,
+        }),
+      );
+    }
+
+    return extensions;
+  }, [ydoc, provider, currentUser]);
+
   const editor = useEditor(
     {
-      extensions: [
-        StarterKit.configure({
-          history: false,
-          bold: false,
-          italic: false,
-          underline: false,
-        }),
-        Bold,
-        Italic,
-        Underline,
-        Collaboration.configure({
-          document: ydoc,
-        }),
-      ],
+      extensions: editorExtensions,
 
       editorProps: {
         attributes: {
@@ -122,7 +178,7 @@ const TiptapEditor = ({
       autofocus: canEdit,
       editable: Boolean(ydoc && provider && canEdit),
     },
-    [ydoc, provider, canEdit],
+    [editorExtensions, ydoc, provider, canEdit],
   );
 
   useEffect(() => {
