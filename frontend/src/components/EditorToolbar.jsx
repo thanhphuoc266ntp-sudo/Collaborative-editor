@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ToolbarButton from "./ToolbarButton";
 
 const DEFAULT_MARKS = {
@@ -15,6 +15,11 @@ const EditorToolbar = ({
   canEdit = false,
   myRole = "viewer",
 }) => {
+  const fallbackMarksRef = useRef({
+    ...DEFAULT_MARKS,
+  });
+
+  const marksRef = activeMarksRef || fallbackMarksRef;
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -43,14 +48,13 @@ const EditorToolbar = ({
 
   useEffect(() => {
     if (canEdit) return;
-    if (!activeMarksRef) return;
 
-    activeMarksRef.current = {
+    marksRef.current = {
       ...DEFAULT_MARKS,
     };
 
     forceUpdate((value) => value + 1);
-  }, [canEdit, activeMarksRef]);
+  }, [canEdit, marksRef]);
 
   if (!editor) return null;
 
@@ -62,13 +66,11 @@ const EditorToolbar = ({
         : "Viewer";
 
   const getCurrentMarks = () => {
-    return activeMarksRef?.current || DEFAULT_MARKS;
+    return marksRef.current || DEFAULT_MARKS;
   };
 
   const setCurrentMarks = (nextMarks) => {
-    if (!activeMarksRef) return;
-
-    activeMarksRef.current = {
+    marksRef.current = {
       ...DEFAULT_MARKS,
       ...nextMarks,
     };
@@ -76,7 +78,22 @@ const EditorToolbar = ({
 
   const getBuiltMarks = (schema) => {
     if (typeof buildMarks !== "function") {
-      return [];
+      const marks = [];
+      const currentMarks = getCurrentMarks();
+
+      if (currentMarks.bold && schema.marks.bold) {
+        marks.push(schema.marks.bold.create());
+      }
+
+      if (currentMarks.italic && schema.marks.italic) {
+        marks.push(schema.marks.italic.create());
+      }
+
+      if (currentMarks.underline && schema.marks.underline) {
+        marks.push(schema.marks.underline.create());
+      }
+
+      return marks;
     }
 
     return buildMarks(schema);
@@ -104,7 +121,6 @@ const EditorToolbar = ({
     const { view } = editor;
     const { state } = view;
     const marks = getBuiltMarks(state.schema);
-
     const transaction = state.tr.setStoredMarks(marks);
 
     view.dispatch(transaction);
@@ -113,7 +129,6 @@ const EditorToolbar = ({
 
   const toggleTypingMark = (markName) => {
     if (!canEdit) return;
-    if (!activeMarksRef) return;
 
     const { view } = editor;
     const { state } = view;
@@ -161,9 +176,7 @@ const EditorToolbar = ({
       return;
     }
 
-    const transaction = state.tr.setStoredMarks(marks);
-
-    view.dispatch(transaction);
+    view.dispatch(state.tr.setStoredMarks(marks));
     view.focus();
 
     forceUpdate((value) => value + 1);

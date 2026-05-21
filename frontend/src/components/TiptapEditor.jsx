@@ -51,6 +51,7 @@ const TiptapEditor = ({
           history: false,
           bold: false,
           italic: false,
+          underline: false,
         }),
         Bold,
         Italic,
@@ -78,7 +79,6 @@ const TiptapEditor = ({
           const { state } = view;
           const { schema } = state;
           const marks = buildMarks(schema);
-
           const textNode = schema.text(text, marks);
 
           let transaction = state.tr.replaceWith(from, to, textNode);
