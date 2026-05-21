@@ -233,7 +233,7 @@ const RegisterContent = () => {
                   style={styles.input}
                   type="text"
                   name="username"
-                  placeholder="Ví dụ: thanhphuoc"
+                  placeholder="Tên đăng nhập của bạn"
                   value={formData.username}
                   onChange={handleChange}
                   autoComplete="username"
@@ -246,7 +246,7 @@ const RegisterContent = () => {
                   style={styles.input}
                   type="email"
                   name="email"
-                  placeholder="Ví dụ: hoten123@gmail.com"
+                  placeholder="Email của bạn"
                   value={formData.email}
                   onChange={handleChange}
                   autoComplete="email"
