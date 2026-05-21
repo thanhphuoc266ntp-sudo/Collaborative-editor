@@ -85,26 +85,37 @@ const TiptapEditor = ({
     return marks;
   };
 
-  const editor = useEditor(
-    {
-      extensions: [
-        StarterKit.configure({
-          history: false,
-          bold: false,
-          italic: false,
-          underline: false,
-        }),
-        Bold,
-        Italic,
-        Underline,
-        Collaboration.configure({
-          document: ydoc,
-        }),
+  const editorExtensions = useMemo(() => {
+    const extensions = [
+      StarterKit.configure({
+        history: false,
+        bold: false,
+        italic: false,
+        underline: false,
+      }),
+      Bold,
+      Italic,
+      Underline,
+      Collaboration.configure({
+        document: ydoc,
+      }),
+    ];
+
+    if (provider?.awareness) {
+      extensions.push(
         CollaborationCursor.configure({
           provider,
           user: currentUser,
         }),
-      ],
+      );
+    }
+
+    return extensions;
+  }, [ydoc, provider, currentUser]);
+
+  const editor = useEditor(
+    {
+      extensions: editorExtensions,
 
       editorProps: {
         attributes: {
@@ -167,7 +178,7 @@ const TiptapEditor = ({
       autofocus: canEdit,
       editable: Boolean(ydoc && provider && canEdit),
     },
-    [ydoc, provider, canEdit, currentUser],
+    [editorExtensions, ydoc, provider, canEdit],
   );
 
   useEffect(() => {
@@ -190,7 +201,9 @@ const TiptapEditor = ({
     provider.awareness.setLocalStateField("user", currentUser);
 
     return () => {
-      provider.awareness.setLocalStateField("user", null);
+      if (provider?.awareness) {
+        provider.awareness.setLocalStateField("user", null);
+      }
     };
   }, [provider, currentUser]);
 
