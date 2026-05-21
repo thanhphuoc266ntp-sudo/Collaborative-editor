@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { TextSelection } from "@tiptap/pm/state";
 import ToolbarButton from "./ToolbarButton";
 
 const DEFAULT_MARKS = {
@@ -77,26 +78,26 @@ const EditorToolbar = ({
   };
 
   const getBuiltMarks = (schema) => {
-    if (typeof buildMarks !== "function") {
-      const marks = [];
-      const currentMarks = getCurrentMarks();
-
-      if (currentMarks.bold && schema.marks.bold) {
-        marks.push(schema.marks.bold.create());
-      }
-
-      if (currentMarks.italic && schema.marks.italic) {
-        marks.push(schema.marks.italic.create());
-      }
-
-      if (currentMarks.underline && schema.marks.underline) {
-        marks.push(schema.marks.underline.create());
-      }
-
-      return marks;
+    if (typeof buildMarks === "function") {
+      return buildMarks(schema);
     }
 
-    return buildMarks(schema);
+    const marks = [];
+    const currentMarks = getCurrentMarks();
+
+    if (currentMarks.bold && schema.marks.bold) {
+      marks.push(schema.marks.bold.create());
+    }
+
+    if (currentMarks.italic && schema.marks.italic) {
+      marks.push(schema.marks.italic.create());
+    }
+
+    if (currentMarks.underline && schema.marks.underline) {
+      marks.push(schema.marks.underline.create());
+    }
+
+    return marks;
   };
 
   const hasRealSelectedText = () => {
@@ -115,13 +116,32 @@ const EditorToolbar = ({
     return selectedText.length > 0;
   };
 
-  const applyTypingMarks = () => {
+  const applyStoredMarksOnly = () => {
     if (!canEdit) return;
 
     const { view } = editor;
     const { state } = view;
     const marks = getBuiltMarks(state.schema);
-    const transaction = state.tr.setStoredMarks(marks);
+
+    view.dispatch(state.tr.setStoredMarks(marks));
+    view.focus();
+  };
+
+  const insertFormatBoundary = (marks) => {
+    if (!canEdit) return;
+
+    const { view } = editor;
+    const { state } = view;
+    const { schema } = state;
+
+    const boundary = schema.text("\u200B", []);
+
+    let transaction = state.tr.replaceSelectionWith(boundary, false);
+    const position = transaction.selection.to;
+
+    transaction = transaction
+      .setSelection(TextSelection.create(transaction.doc, position))
+      .setStoredMarks(marks);
 
     view.dispatch(transaction);
     view.focus();
@@ -171,13 +191,16 @@ const EditorToolbar = ({
 
       view.dispatch(transaction);
       view.focus();
-
       forceUpdate((value) => value + 1);
       return;
     }
 
-    view.dispatch(state.tr.setStoredMarks(marks));
-    view.focus();
+    if (wasActive && !nextActive) {
+      insertFormatBoundary(marks);
+    } else {
+      view.dispatch(state.tr.setStoredMarks(marks));
+      view.focus();
+    }
 
     forceUpdate((value) => value + 1);
   };
@@ -189,7 +212,7 @@ const EditorToolbar = ({
 
     requestAnimationFrame(() => {
       editor.view.focus();
-      applyTypingMarks();
+      applyStoredMarksOnly();
       forceUpdate((value) => value + 1);
     });
   };
