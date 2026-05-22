@@ -84,6 +84,7 @@ const editorStyles = `
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.14);
   border-radius: 2px;
   cursor: text;
+  overflow: visible;
 }
 
 .tiptap-editor-content {
@@ -92,6 +93,7 @@ const editorStyles = `
   font-size: 16px;
   line-height: 1.7;
   color: #111827;
+  overflow: visible;
 }
 
 .ProseMirror {
@@ -99,6 +101,7 @@ const editorStyles = `
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow: visible;
 }
 
 .ProseMirror p {
@@ -154,7 +157,7 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration caret mặc định - hiện lại tên/người đang nhập */
+/* Collaboration caret mặc định - hiện tên người đang nhập */
 .collaboration-carets__caret,
 .collaboration-caret__caret,
 .collaboration-cursor__caret {
@@ -165,25 +168,29 @@ const editorStyles = `
   border-right: 2px solid;
   word-break: normal;
   pointer-events: none;
+  overflow: visible;
 }
 
 .collaboration-carets__label,
 .collaboration-caret__label,
 .collaboration-cursor__label {
   position: absolute;
-  top: -1.55em;
+  top: -1.65em;
   left: -2px;
+  max-width: 140px;
   padding: 4px 8px;
   border-radius: 9px 9px 9px 0;
   color: #ffffff;
   font-size: 12px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.15;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   user-select: none;
   pointer-events: none;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
-  z-index: 50;
+  z-index: 999;
 }
 
 .collaboration-carets__label::before,
@@ -206,11 +213,27 @@ const editorStyles = `
     min-height: calc(100vh - 160px);
     padding: 42px 28px;
     border-radius: 10px;
+    overflow: visible;
   }
 
   .tiptap-editor-content,
   .ProseMirror {
     min-height: calc(100vh - 260px);
+    overflow: visible;
+  }
+
+  .collaboration-carets__label,
+  .collaboration-caret__label,
+  .collaboration-cursor__label {
+    top: -1.75em;
+    left: -2px;
+    max-width: 92px;
+    padding: 3px 6px;
+    font-size: 10px;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 999;
   }
 }
 `;
