@@ -154,21 +154,29 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Remote selection: đổi dải cam thành xanh nhạt, gọn hơn */
+/* Remote selection: đổi vùng chọn của người khác sang xanh nhạt */
 .ProseMirror-yjs-selection,
-.yjs-selection {
+.yjs-selection,
+.collaboration-carets__selection,
+.collaboration-caret__selection,
+.collaboration-cursor__selection {
   background: rgba(37, 99, 235, 0.16) !important;
+  background-color: rgba(37, 99, 235, 0.16) !important;
   border-radius: 3px !important;
+  box-decoration-break: clone !important;
+  -webkit-box-decoration-break: clone !important;
 }
 
-/* Custom CollaborationCaret: chỉ hiện vạch + chấm nhỏ */
+/* Custom CollaborationCaret: vạch + chấm nhỏ */
 .mydocs-remote-caret {
   position: relative;
   margin-left: -1px;
   margin-right: -1px;
   border-left: 2px solid;
   border-right: none;
+  background: transparent;
   pointer-events: none;
+  word-break: normal;
 }
 
 .mydocs-remote-dot {
@@ -182,10 +190,36 @@ const editorStyles = `
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22);
 }
 
-/* Ẩn label mặc định nếu extension vẫn render phụ */
+/* Ẩn label mặc định của Tiptap/Yjs để không còn dải cam dài */
+.collaboration-carets__label,
 .collaboration-caret__label,
 .collaboration-cursor__label {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+.collaboration-carets__label::before,
+.collaboration-carets__label::after,
+.collaboration-caret__label::before,
+.collaboration-caret__label::after,
+.collaboration-cursor__label::before,
+.collaboration-cursor__label::after {
+  display: none !important;
+  content: none !important;
 }
 
 @media (max-width: 900px) {
