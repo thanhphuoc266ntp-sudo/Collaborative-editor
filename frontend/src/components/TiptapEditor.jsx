@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import Bold from "@tiptap/extension-bold";
 import Italic from "@tiptap/extension-italic";
@@ -171,39 +170,22 @@ const TiptapEditor = ({
           spellcheck: "false",
         },
 
-        handleTextInput(view, from, to, text) {
+        handleTextInput() {
           if (!canEdit) {
             return true;
           }
 
           lastLocalEditAtRef.current = Date.now();
 
-          if (from !== to) {
-            return false;
-          }
-
-          const { state } = view;
-          const { schema } = state;
-          const marks = buildMarks(schema);
-          const textNode = schema.text(text, marks);
-
-          let transaction = state.tr.replaceWith(from, to, textNode);
-
-          transaction = transaction.setSelection(
-            TextSelection.create(transaction.doc, from + text.length),
-          );
-
-          transaction = transaction.setStoredMarks(marks);
-
-          view.dispatch(transaction);
-
-          return true;
+          return false;
         },
 
         handleKeyDown() {
           if (!canEdit) {
             return true;
           }
+
+          lastLocalEditAtRef.current = Date.now();
 
           return false;
         },
