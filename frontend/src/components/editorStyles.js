@@ -154,22 +154,29 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration marker - compact blue remote selection */
+/* Collaboration marker - small blue selection, no arrow/name */
 .ProseMirror-yjs-selection,
 .yjs-selection,
 .collaboration-caret__selection,
 .collaboration-cursor__selection,
 span[class*="yjs"][class*="selection"],
 span[class*="collaboration"][class*="selection"] {
-  background: rgba(37, 99, 235, 0.18) !important;
-  background-color: rgba(37, 99, 235, 0.18) !important;
-  border-radius: 4px !important;
-  padding: 0 1px !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 58%,
+    rgba(37, 99, 235, 0.22) 58%,
+    rgba(37, 99, 235, 0.22) 82%,
+    transparent 82%,
+    transparent 100%
+  ) !important;
+  border-radius: 3px !important;
   box-decoration-break: clone !important;
   -webkit-box-decoration-break: clone !important;
 }
 
-/* Hide caret arrow/name, keep selection only */
+/* Hide caret arrow/name, keep remote selection highlight only */
 .ProseMirror-yjs-cursor,
 .yjs-cursor,
 .collaboration-caret__caret,
