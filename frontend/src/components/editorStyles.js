@@ -154,7 +154,11 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration caret / cursor - compact color version */
+.ProseMirror-yjs-selection {
+  background: transparent !important;
+}
+
+.ProseMirror-yjs-cursor,
 .collaboration-caret__caret,
 .collaboration-cursor__caret {
   position: relative !important;
@@ -168,33 +172,71 @@ const editorStyles = `
   pointer-events: none !important;
 }
 
+.ProseMirror-yjs-cursor > div,
 .collaboration-caret__label,
 .collaboration-cursor__label {
   position: absolute !important;
-  top: -8px !important;
-  left: -5px !important;
-  width: 9px !important;
-  min-width: 9px !important;
-  max-width: 9px !important;
-  height: 9px !important;
-  min-height: 9px !important;
-  max-height: 9px !important;
+  top: -17px !important;
+  left: -7px !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  max-height: 14px !important;
   padding: 0 !important;
   margin: 0 !important;
-  border-radius: 999px !important;
+  border-radius: 4px !important;
   color: transparent !important;
   font-size: 0 !important;
-  line-height: 0 !important;
+  font-weight: 800 !important;
+  line-height: 14px !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-indent: -9999px !important;
-  pointer-events: none !important;
-  user-select: none !important;
+  clip-path: polygon(50% 0%, 100% 100%, 50% 78%, 0% 100%) !important;
   border: 2px solid #ffffff !important;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18) !important;
-  z-index: 50 !important;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.22) !important;
+  pointer-events: auto !important;
+  cursor: default !important;
+  user-select: none !important;
+  z-index: 80 !important;
+  transition:
+    width 0.18s ease,
+    max-width 0.18s ease,
+    min-width 0.18s ease,
+    height 0.18s ease,
+    border-radius 0.18s ease,
+    padding 0.18s ease,
+    clip-path 0.18s ease,
+    color 0.18s ease,
+    font-size 0.18s ease,
+    text-indent 0.18s ease;
 }
 
+.ProseMirror-yjs-cursor > div:hover,
+.collaboration-caret__label:hover,
+.collaboration-cursor__label:hover {
+  top: -30px !important;
+  left: -6px !important;
+  width: auto !important;
+  min-width: 52px !important;
+  max-width: 170px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  padding: 0 9px !important;
+  border-radius: 999px !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  line-height: 24px !important;
+  text-indent: 0 !important;
+  clip-path: none !important;
+  text-overflow: ellipsis !important;
+}
+
+.ProseMirror-yjs-cursor > div::before,
+.ProseMirror-yjs-cursor > div::after,
 .collaboration-caret__label::before,
 .collaboration-caret__label::after,
 .collaboration-cursor__label::before,
