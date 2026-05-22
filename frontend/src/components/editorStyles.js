@@ -154,73 +154,38 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration marker - simple blue style */
+/* Remote selection: đổi dải cam thành xanh nhạt, gọn hơn */
 .ProseMirror-yjs-selection,
-.yjs-selection,
-.collaboration-caret__selection,
-.collaboration-cursor__selection {
+.yjs-selection {
   background: rgba(37, 99, 235, 0.16) !important;
-  background-color: rgba(37, 99, 235, 0.16) !important;
   border-radius: 3px !important;
-  box-decoration-break: clone !important;
-  -webkit-box-decoration-break: clone !important;
 }
 
-.ProseMirror-yjs-cursor,
-.yjs-cursor,
-.collaboration-caret__caret,
-.collaboration-cursor__caret {
-  position: relative !important;
-  margin-left: -1px !important;
-  margin-right: -1px !important;
-  border-left: 2px solid #2563eb !important;
-  border-right: none !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  pointer-events: none !important;
+/* Custom CollaborationCaret: chỉ hiện vạch + chấm nhỏ */
+.mydocs-remote-caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: none;
+  pointer-events: none;
 }
 
-.ProseMirror-yjs-cursor > div,
-.yjs-cursor > div,
+.mydocs-remote-dot {
+  position: absolute;
+  top: -9px;
+  left: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22);
+}
+
+/* Ẩn label mặc định nếu extension vẫn render phụ */
 .collaboration-caret__label,
 .collaboration-cursor__label {
-  display: block !important;
-  position: absolute !important;
-  top: -9px !important;
-  left: -5px !important;
-  width: 8px !important;
-  min-width: 8px !important;
-  max-width: 8px !important;
-  height: 8px !important;
-  min-height: 8px !important;
-  max-height: 8px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border-radius: 999px !important;
-  background: #2563eb !important;
-  background-color: #2563eb !important;
-  color: transparent !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
-  text-indent: -9999px !important;
-  overflow: hidden !important;
-  border: 2px solid #ffffff !important;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25) !important;
-  pointer-events: none !important;
-  user-select: none !important;
-  z-index: 80 !important;
-}
-
-.ProseMirror-yjs-cursor > div::before,
-.ProseMirror-yjs-cursor > div::after,
-.yjs-cursor > div::before,
-.yjs-cursor > div::after,
-.collaboration-caret__label::before,
-.collaboration-caret__label::after,
-.collaboration-cursor__label::before,
-.collaboration-cursor__label::after {
   display: none !important;
-  content: none !important;
 }
 
 @media (max-width: 900px) {
