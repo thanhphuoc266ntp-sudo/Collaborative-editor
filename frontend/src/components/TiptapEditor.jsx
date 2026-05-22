@@ -123,20 +123,6 @@ const TiptapEditor = ({
         CollaborationCaret.configure({
           provider,
           user: currentUser,
-          render: (user) => {
-            const caret = document.createElement("span");
-            caret.className = "mydocs-remote-caret";
-            caret.style.borderLeftColor = user?.color || "#2563eb";
-
-            const dot = document.createElement("span");
-            dot.className = "mydocs-remote-dot";
-            dot.style.backgroundColor = user?.color || "#2563eb";
-            dot.title = user?.name || "Người dùng";
-
-            caret.appendChild(dot);
-
-            return caret;
-          },
         }),
       );
     }

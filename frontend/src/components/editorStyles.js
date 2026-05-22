@@ -154,62 +154,36 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Remote selection: đổi vùng chọn của người khác sang xanh nhạt */
-.ProseMirror-yjs-selection,
-.yjs-selection,
-.collaboration-carets__selection,
-.collaboration-caret__selection,
-.collaboration-cursor__selection {
-  background: rgba(37, 99, 235, 0.16) !important;
-  background-color: rgba(37, 99, 235, 0.16) !important;
-  border-radius: 3px !important;
-  box-decoration-break: clone !important;
-  -webkit-box-decoration-break: clone !important;
-}
-
-/* Custom CollaborationCaret: vạch + chấm nhỏ */
-.mydocs-remote-caret {
+/* Collaboration caret mặc định - hiện lại tên/người đang nhập */
+.collaboration-carets__caret,
+.collaboration-caret__caret,
+.collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
   margin-right: -1px;
   border-left: 2px solid;
-  border-right: none;
-  background: transparent;
-  pointer-events: none;
+  border-right: 2px solid;
   word-break: normal;
+  pointer-events: none;
 }
 
-.mydocs-remote-dot {
-  position: absolute;
-  top: -9px;
-  left: -5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  border: 2px solid #ffffff;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22);
-}
-
-/* Ẩn label mặc định của Tiptap/Yjs để không còn dải cam dài */
 .collaboration-carets__label,
 .collaboration-caret__label,
 .collaboration-cursor__label {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  max-width: 0 !important;
-  max-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  overflow: hidden !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: transparent !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
+  position: absolute;
+  top: -1.55em;
+  left: -2px;
+  padding: 4px 8px;
+  border-radius: 9px 9px 9px 0;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+  z-index: 50;
 }
 
 .collaboration-carets__label::before,
@@ -218,8 +192,8 @@ const editorStyles = `
 .collaboration-caret__label::after,
 .collaboration-cursor__label::before,
 .collaboration-cursor__label::after {
-  display: none !important;
-  content: none !important;
+  display: none;
+  content: none;
 }
 
 @media (max-width: 900px) {
