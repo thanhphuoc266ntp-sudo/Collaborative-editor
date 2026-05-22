@@ -154,23 +154,13 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration marker - compact blue indicator */
+/* Collaboration marker - simple blue style */
 .ProseMirror-yjs-selection,
 .yjs-selection,
 .collaboration-caret__selection,
-.collaboration-cursor__selection,
-span[class*="yjs"][class*="selection"],
-span[class*="collaboration"][class*="selection"] {
-  background-color: transparent !important;
-  background-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    transparent 62%,
-    rgba(37, 99, 235, 0.28) 62%,
-    rgba(37, 99, 235, 0.28) 82%,
-    transparent 82%,
-    transparent 100%
-  ) !important;
+.collaboration-cursor__selection {
+  background: rgba(37, 99, 235, 0.16) !important;
+  background-color: rgba(37, 99, 235, 0.16) !important;
   border-radius: 3px !important;
   box-decoration-break: clone !important;
   -webkit-box-decoration-break: clone !important;
@@ -193,13 +183,11 @@ span[class*="collaboration"][class*="selection"] {
 .ProseMirror-yjs-cursor > div,
 .yjs-cursor > div,
 .collaboration-caret__label,
-.collaboration-cursor__label,
-[class*="collaboration-caret"][class*="label"],
-[class*="collaboration-cursor"][class*="label"] {
+.collaboration-cursor__label {
   display: block !important;
   position: absolute !important;
-  top: -10px !important;
-  left: -4px !important;
+  top: -9px !important;
+  left: -5px !important;
   width: 8px !important;
   min-width: 8px !important;
   max-width: 8px !important;
@@ -217,7 +205,7 @@ span[class*="collaboration"][class*="selection"] {
   text-indent: -9999px !important;
   overflow: hidden !important;
   border: 2px solid #ffffff !important;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28) !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25) !important;
   pointer-events: none !important;
   user-select: none !important;
   z-index: 80 !important;
