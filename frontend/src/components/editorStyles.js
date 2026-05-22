@@ -154,11 +154,19 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-.ProseMirror-yjs-selection {
+/* Hide remote selection and labels, keep only thin colored caret */
+.ProseMirror-yjs-selection,
+.yjs-selection,
+.collaboration-caret__selection,
+.collaboration-cursor__selection,
+span[class*="yjs"][class*="selection"],
+span[class*="collaboration"][class*="selection"] {
   background: transparent !important;
+  background-color: transparent !important;
 }
 
 .ProseMirror-yjs-cursor,
+.yjs-cursor,
 .collaboration-caret__caret,
 .collaboration-cursor__caret {
   position: relative !important;
@@ -168,75 +176,45 @@ const editorStyles = `
   border-left-style: solid !important;
   border-right: none !important;
   background: transparent !important;
+  background-color: transparent !important;
   word-break: normal !important;
   pointer-events: none !important;
 }
 
-.ProseMirror-yjs-cursor > div,
+.ProseMirror-yjs-cursor > *,
+.yjs-cursor > *,
 .collaboration-caret__label,
-.collaboration-cursor__label {
-  position: absolute !important;
-  top: -17px !important;
-  left: -7px !important;
-  width: 14px !important;
-  min-width: 14px !important;
-  max-width: 14px !important;
-  height: 14px !important;
-  min-height: 14px !important;
-  max-height: 14px !important;
+.collaboration-cursor__label,
+[class*="collaboration-caret"][class*="label"],
+[class*="collaboration-cursor"][class*="label"],
+[class*="yjs-cursor"] > *,
+[class*="ProseMirror-yjs-cursor"] > * {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
-  border-radius: 4px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   color: transparent !important;
   font-size: 0 !important;
-  font-weight: 800 !important;
-  line-height: 14px !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
+  line-height: 0 !important;
   text-indent: -9999px !important;
-  clip-path: polygon(50% 0%, 100% 100%, 50% 78%, 0% 100%) !important;
-  border: 2px solid #ffffff !important;
-  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.22) !important;
-  pointer-events: auto !important;
-  cursor: default !important;
-  user-select: none !important;
-  z-index: 80 !important;
-  transition:
-    width 0.18s ease,
-    max-width 0.18s ease,
-    min-width 0.18s ease,
-    height 0.18s ease,
-    border-radius 0.18s ease,
-    padding 0.18s ease,
-    clip-path 0.18s ease,
-    color 0.18s ease,
-    font-size 0.18s ease,
-    text-indent 0.18s ease;
 }
 
-.ProseMirror-yjs-cursor > div:hover,
-.collaboration-caret__label:hover,
-.collaboration-cursor__label:hover {
-  top: -30px !important;
-  left: -6px !important;
-  width: auto !important;
-  min-width: 52px !important;
-  max-width: 170px !important;
-  height: 24px !important;
-  min-height: 24px !important;
-  max-height: 24px !important;
-  padding: 0 9px !important;
-  border-radius: 999px !important;
-  color: #ffffff !important;
-  font-size: 12px !important;
-  line-height: 24px !important;
-  text-indent: 0 !important;
-  clip-path: none !important;
-  text-overflow: ellipsis !important;
-}
-
-.ProseMirror-yjs-cursor > div::before,
-.ProseMirror-yjs-cursor > div::after,
+.ProseMirror-yjs-cursor > *::before,
+.ProseMirror-yjs-cursor > *::after,
+.yjs-cursor > *::before,
+.yjs-cursor > *::after,
 .collaboration-caret__label::before,
 .collaboration-caret__label::after,
 .collaboration-cursor__label::before,
