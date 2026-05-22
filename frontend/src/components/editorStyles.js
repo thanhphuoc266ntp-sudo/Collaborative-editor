@@ -154,52 +154,45 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration caret / cursor - clean compact version */
+/* Collaboration caret / cursor - compact color version */
 .collaboration-caret__caret,
 .collaboration-cursor__caret {
   position: relative !important;
   margin-left: -1px !important;
   margin-right: -1px !important;
-  border-left: 2px solid !important;
+  border-left-width: 2px !important;
+  border-left-style: solid !important;
   border-right: none !important;
   background: transparent !important;
   word-break: normal !important;
   pointer-events: none !important;
 }
 
-.collaboration-caret__caret::before,
-.collaboration-cursor__caret::before {
-  content: "" !important;
+.collaboration-caret__label,
+.collaboration-cursor__label {
   position: absolute !important;
-  top: -7px !important;
+  top: -8px !important;
   left: -5px !important;
   width: 9px !important;
+  min-width: 9px !important;
+  max-width: 9px !important;
   height: 9px !important;
-  border-radius: 999px !important;
-  background: currentColor !important;
-  box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.95),
-    0 4px 10px rgba(15, 23, 42, 0.18) !important;
-}
-
-.collaboration-caret__label,
-.collaboration-cursor__label,
-[class*="collaboration-caret"][class*="label"],
-[class*="collaboration-cursor"][class*="label"] {
-  display: none !important;
-  width: 0 !important;
-  max-width: 0 !important;
-  min-width: 0 !important;
-  height: 0 !important;
-  max-height: 0 !important;
+  min-height: 9px !important;
+  max-height: 9px !important;
   padding: 0 !important;
   margin: 0 !important;
+  border-radius: 999px !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  white-space: nowrap !important;
   overflow: hidden !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
+  text-indent: -9999px !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18) !important;
+  z-index: 50 !important;
 }
 
 .collaboration-caret__label::before,
