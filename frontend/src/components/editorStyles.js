@@ -154,13 +154,12 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Hide remote selection and labels, keep only thin colored caret */
+/* Collaboration marker - only small colored arrow, no long orange bar */
 .ProseMirror-yjs-selection,
 .yjs-selection,
 .collaboration-caret__selection,
 .collaboration-cursor__selection,
-span[class*="yjs"][class*="selection"],
-span[class*="collaboration"][class*="selection"] {
+span[class*="selection"] {
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -170,51 +169,50 @@ span[class*="collaboration"][class*="selection"] {
 .collaboration-caret__caret,
 .collaboration-cursor__caret {
   position: relative !important;
-  margin-left: -1px !important;
-  margin-right: -1px !important;
-  border-left-width: 2px !important;
-  border-left-style: solid !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  border-left: none !important;
   border-right: none !important;
   background: transparent !important;
   background-color: transparent !important;
-  word-break: normal !important;
   pointer-events: none !important;
 }
 
-.ProseMirror-yjs-cursor > *,
-.yjs-cursor > *,
+.ProseMirror-yjs-cursor > div,
+.yjs-cursor > div,
 .collaboration-caret__label,
-.collaboration-cursor__label,
-[class*="collaboration-caret"][class*="label"],
-[class*="collaboration-cursor"][class*="label"],
-[class*="yjs-cursor"] > *,
-[class*="ProseMirror-yjs-cursor"] > * {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  max-height: 0 !important;
+.collaboration-cursor__label {
+  position: absolute !important;
+  top: -15px !important;
+  left: -7px !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  max-height: 14px !important;
   padding: 0 !important;
   margin: 0 !important;
-  overflow: hidden !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  border-radius: 4px !important;
   color: transparent !important;
   font-size: 0 !important;
+  font-weight: 800 !important;
   line-height: 0 !important;
   text-indent: -9999px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.22) !important;
+  clip-path: polygon(50% 0%, 100% 100%, 50% 78%, 0% 100%) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  z-index: 80 !important;
 }
 
-.ProseMirror-yjs-cursor > *::before,
-.ProseMirror-yjs-cursor > *::after,
-.yjs-cursor > *::before,
-.yjs-cursor > *::after,
+.ProseMirror-yjs-cursor > div::before,
+.ProseMirror-yjs-cursor > div::after,
+.yjs-cursor > div::before,
+.yjs-cursor > div::after,
 .collaboration-caret__label::before,
 .collaboration-caret__label::after,
 .collaboration-cursor__label::before,
