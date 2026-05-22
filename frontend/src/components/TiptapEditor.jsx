@@ -22,12 +22,43 @@ const USER_COLORS = [
 ];
 
 const getStoredUserName = () => {
-  return (
+  const directName =
     localStorage.getItem("userName") ||
-    localStorage.getItem("userEmail") ||
-    localStorage.getItem("email") ||
-    "Người dùng"
-  );
+    localStorage.getItem("name") ||
+    localStorage.getItem("fullName") ||
+    localStorage.getItem("displayName");
+
+  if (directName) {
+    return directName;
+  }
+
+  const directEmail =
+    localStorage.getItem("userEmail") || localStorage.getItem("email");
+
+  if (directEmail) {
+    return directEmail;
+  }
+
+  try {
+    const userRaw = localStorage.getItem("user");
+
+    if (userRaw) {
+      const user = JSON.parse(userRaw);
+
+      return (
+        user.name ||
+        user.fullName ||
+        user.displayName ||
+        user.username ||
+        user.email ||
+        "Người dùng"
+      );
+    }
+  } catch {
+    return "Người dùng";
+  }
+
+  return "Người dùng";
 };
 
 const getUserColor = (name) => {
@@ -217,6 +248,18 @@ const TiptapEditor = ({
       };
     }
   }, [editor, ydoc, provider, canEdit]);
+
+  useEffect(() => {
+    if (!provider?.awareness) return;
+
+    provider.awareness.setLocalStateField("user", currentUser);
+
+    return () => {
+      if (provider?.awareness) {
+        provider.awareness.setLocalStateField("user", null);
+      }
+    };
+  }, [provider, currentUser]);
 
   useEffect(() => {
     if (!ydoc || !provider) return;
