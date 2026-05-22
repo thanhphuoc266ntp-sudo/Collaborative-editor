@@ -154,36 +154,60 @@ const editorStyles = `
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-/* Collaboration caret / cursor - clean version */
+/* Collaboration caret / cursor - clean compact version */
 .collaboration-caret__caret,
 .collaboration-cursor__caret {
-  position: relative;
-  margin-left: -1px;
-  margin-right: -1px;
-  border-left: 2px solid;
-  border-right: none;
-  word-break: normal;
-  pointer-events: none;
+  position: relative !important;
+  margin-left: -1px !important;
+  margin-right: -1px !important;
+  border-left: 2px solid !important;
+  border-right: none !important;
+  background: transparent !important;
+  word-break: normal !important;
+  pointer-events: none !important;
 }
 
 .collaboration-caret__caret::before,
 .collaboration-cursor__caret::before {
-  content: "";
-  position: absolute;
-  top: -7px;
-  left: -5px;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: currentColor;
+  content: "" !important;
+  position: absolute !important;
+  top: -7px !important;
+  left: -5px !important;
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 999px !important;
+  background: currentColor !important;
   box-shadow:
     0 0 0 3px rgba(255, 255, 255, 0.95),
-    0 4px 10px rgba(15, 23, 42, 0.18);
+    0 4px 10px rgba(15, 23, 42, 0.18) !important;
 }
 
 .collaboration-caret__label,
-.collaboration-cursor__label {
-  display: none;
+.collaboration-cursor__label,
+[class*="collaboration-caret"][class*="label"],
+[class*="collaboration-cursor"][class*="label"] {
+  display: none !important;
+  width: 0 !important;
+  max-width: 0 !important;
+  min-width: 0 !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.collaboration-caret__label::before,
+.collaboration-caret__label::after,
+.collaboration-cursor__label::before,
+.collaboration-cursor__label::after {
+  display: none !important;
+  content: none !important;
 }
 
 @media (max-width: 900px) {
@@ -205,7 +229,11 @@ const editorStyles = `
 }
 `;
 
-if (!document.getElementById("editor-styles")) {
+const existingStyle = document.getElementById("editor-styles");
+
+if (existingStyle) {
+  existingStyle.innerHTML = editorStyles;
+} else {
   const style = document.createElement("style");
   style.id = "editor-styles";
   style.innerHTML = editorStyles;
