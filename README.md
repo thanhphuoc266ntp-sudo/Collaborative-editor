@@ -136,4 +136,4 @@ npm run dev
 
 ## Liên hệ
 
-- Thêm thông tin liên hệ hoặc tên người thực hiện nếu cần.
+- Địa chỉ email: 24521410@gm.uit.edu.vn
